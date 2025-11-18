@@ -1,0 +1,41 @@
+/* Styling for the Transaction History Table */
+.transaction-history {
+    margin-top: 20px;
+    background-color: #ffffff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.transaction-history table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+.transaction-history th, .transaction-history td {
+    border: 1px solid #ddd;
+    padding: 12px 15px;
+    text-align: left;
+}
+
+.transaction-history th {
+    background-color: #f0f4f7;
+    font-weight: bold;
+    color: #333;
+}
+
+.transaction-history tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+/* Color Coding for Transaction Type */
+.debit {
+    color: #c0392b; /* Red */
+    font-weight: bold;
+}
+
+.credit {
+    color: #27ae60; /* Green */
+    font-weight: bold;
+}
