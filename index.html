@@ -4,104 +4,541 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Trinity Finance Bank Dashboard</title>
-    <link rel="stylesheet" href="style.css">
-    <!-- Optional: Link to an icon library like Font Awesome for icons -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f7fafc; }
+        .card { background-color: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1); }
+        .gradient-card { 
+            background: linear-gradient(135deg, #1f2937 0%, #4b5563 100%);
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+        .gradient-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: rgba(255, 255, 255, 0.05);
+            transform: rotate(45deg);
+        }
+        .btn-primary { background-color: #2563eb; color: white; transition: background-color 0.2s; }
+        .btn-primary:hover { background-color: #1d4ed8; }
+        .btn-success { background-color: #059669; color: white; transition: background-color 0.2s; }
+        .btn-success:hover { background-color: #047857; }
+        .btn-danger { background-color: #dc2626; color: white; transition: background-color 0.2s; }
+        .btn-danger:hover { background-color: #b91c1c; }
+        .btn-interest { background-color: #fbbf24; color: #1f2937; transition: background-color 0.2s; }
+        .btn-interest:hover { background-color: #f59e0b; }
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+    </style>
 </head>
-<body>
-    <div class="dashboard-container">
-        <!-- 1. Side Menu & Profile -->
-        <aside class="sidebar">
-            <div class="profile-section">
-                <h3>👤 Trinity Finance Bank</h3>
-                <p>499 stratford court, Raleigh NC 27615</p>
-                <div class="customer-support">
-                    <p>Support: **(504) 499-5059**</p>
-                </div>
-                <!-- UPDATED: Log Out button now links to login.html -->
-                <a href="login.html" class="logout-btn">Log Out</a>
-            </div>
-            <nav class="nav-links">
-                <a href="#home">Dashboard</a>
-                <a href="#transfer">Transfer Options</a>
-                <a href="#history">Transactions</a>
-                <a href="#settings">Settings</a>
-            </nav>
-        </aside>
+<body class="p-4 sm:p-8">
 
-        <!-- 2. Main Content -->
-        <main class="main-content">
-            <!-- Notification Bar -->
-            <header class="top-bar">
-                <h2>Welcome to Trinity Finance Bank</h2>
-                <div class="notification-bar">🔔 Account Status: Active</div>
-            </header>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, query, orderBy, limit, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-            <!-- Available Balance and Account Number -->
-            <section class="balance-card">
-                <div class="account-info">
-                    <p class="account-label">Account Type: **Fixed Deposited Account**</p>
-                    <p class="account-number-bar">Account No: **7739118821**</p>
-                </div>
-                <div class="balance">
-                    <p>Available Balance:</p>
-                    <h1 id="available-balance">$71,800,000.00</h1>
-                </div>
-            </section>
+        // --- GLOBAL VARIABLES (Provided by Canvas Environment) ---
+        // Ensure these variables are defined for development and testing outside the canvas environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'trinity-bank-app';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "DUMMY_API_KEY",
+            authDomain: "DUMMY_AUTH_DOMAIN",
+            projectId: "DUMMY_PROJECT_ID",
+        };
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        // --- APP STATE AND CONSTANTS ---
+        const ACCOUNT_HOLDER_NAME = "Steven";
+        const INITIAL_BALANCE = 71799032.65;
+        const ACCOUNT_NUMBER = "7739118821";
+        const ROUTING_NUMBER = "006208398723029951";
+        const ACCOUNT_TYPE = "Fixed Deposit Account";
+        // REMOVED: const PRIVATE_KEY = 'trinity77'; 
 
-            <!-- Credit Card Bar (Structure Added) -->
-            <section class="credit-card-bar">
-                <div class="card-details">
-                    <h3>💳 Platinum Rewards Card</h3>
-                    <p class="card-number">XXXX XXXX XXXX 4567</p>
-                    <p class="card-status">Status: **Active** | Next Payment Due: **$1,500.00**</p>
-                </div>
-            </section>
+        let app;
+        let db;
+        let auth;
+        let userId = null;
+        let accountRef = null;
+        let currentBalance = INITIAL_BALANCE;
+        let transactionHistory = [];
+        
+        // --- HTML Element References ---
+        const balanceEl = document.getElementById('balance');
+        const historyTableBody = document.getElementById('history-table-body');
+        const totalTransactionsEl = document.getElementById('total-transactions');
+        const messageBox = document.getElementById('message-box');
+        const messageText = document.getElementById('message-text');
+        const loginContainer = document.getElementById('login-container');
+        const dashboardContainer = document.getElementById('dashboard-container');
+        const accountUserIdEl = document.getElementById('account-user-id');
+        const accountHolderEl = document.getElementById('account-holder-name');
 
-            <!-- Quick Transfer/Deposit Options -->
-            <section class="quick-actions">
-                <h3>Quick Transaction</h3>
-                <form id="transfer-form">
-                    <select id="transaction-type">
-                        <option value="withdrawal">Withdrawal / Transfer</option>
-                        <option value="deposit">Deposit</option>
-                    </select>
+        // --- Utility Functions ---
 
-                    <input type="number" placeholder="Amount" step="0.01" required>
-                    <input type="text" placeholder="Recipient Account (For Transfers)" required>
-                    <button type="submit">Process Transaction</button>
-                </form>
-            </section>
+        /**
+         * Shows a temporary message box for success or error feedback.
+         * @param {string} msg The message to display.
+         * @param {string} type 'success' or 'error'.
+         */
+        function showMessage(msg, type = 'success') {
+            messageText.textContent = msg;
+            messageBox.className = `fixed top-4 right-4 p-4 rounded-lg z-50 transition-transform transform ${type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'} shadow-lg translate-x-0`;
+            setTimeout(() => {
+                messageBox.className = `fixed top-4 right-4 p-4 rounded-lg z-50 transition-transform transform translate-x-full`;
+            }, 3000);
+        }
+
+        /**
+         * Formats a number as a currency string.
+         * @param {number} amount The numeric amount.
+         * @returns {string} The formatted currency string.
+         */
+        const formatCurrency = (amount) => {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 2,
+            }).format(amount);
+        };
+
+        /**
+         * Generates a unique, short transaction reference ID.
+         * @returns {string} The transaction reference ID.
+         */
+        const generateRefId = (type) => {
+            const prefix = type === 'Debit' ? 'TRXD' : 'TRXC';
+            return prefix + Math.random().toString(16).substring(2, 10).toUpperCase();
+        };
+
+        /**
+         * Calculates the daily interest for a Fixed Deposit Account.
+         * Assumes 4.25% APR compounded daily.
+         * @param {number} balance The current balance.
+         * @returns {number} The calculated daily interest amount.
+         */
+        const calculateDailyInterest = (balance) => {
+            const APR = 0.0425; // 4.25% Annual Percentage Rate
+            const DAILY_RATE = APR / 365;
+            const interest = balance * DAILY_RATE;
+            // Round to 2 decimal places for currency
+            return Math.round(interest * 100) / 100;
+        };
+
+        // --- Core Application Logic ---
+
+        /**
+         * Renders the current balance and transaction history.
+         */
+        function renderDashboard() {
+            balanceEl.textContent = formatCurrency(currentBalance);
+            accountHolderEl.textContent = ACCOUNT_HOLDER_NAME;
+            totalTransactionsEl.textContent = transactionHistory.length;
             
-            <hr>
+            // Render History
+            historyTableBody.innerHTML = '';
+            transactionHistory.slice().reverse().forEach((tx, index) => {
+                const row = historyTableBody.insertRow();
+                row.className = index % 2 === 0 ? 'bg-gray-50' : 'bg-white';
+                
+                // Index
+                const cellIndex = row.insertCell();
+                cellIndex.textContent = transactionHistory.length - index;
+                cellIndex.className = 'py-2 px-4 text-gray-500';
 
-            <!-- Transaction History Table -->
-            <section class="transaction-history">
-                <h3>Transaction History</h3>
-                <table>
-                    <thead>
+                // Reference
+                const cellRef = row.insertCell();
+                cellRef.textContent = tx.refId;
+                cellRef.className = 'py-2 px-4 font-mono text-xs text-gray-700';
+
+                // Amount
+                const cellAmount = row.insertCell();
+                cellAmount.textContent = formatCurrency(tx.amount);
+                cellAmount.className = `py-2 px-4 font-semibold ${tx.type === 'Credit' ? 'text-green-600' : 'text-red-600'}`;
+
+                // Type
+                const cellType = row.insertCell();
+                cellType.textContent = tx.type;
+                cellType.className = `py-2 px-4 font-medium ${tx.type === 'Credit' ? 'text-green-700' : 'text-red-700'}`;
+
+                // Date
+                const cellDate = row.insertCell();
+                cellDate.textContent = tx.timestamp ? new Date(tx.timestamp.toDate()).toLocaleDateString() : new Date().toLocaleDateString();
+                cellDate.className = 'py-2 px-4 text-gray-500 text-sm';
+
+                // Balance
+                const cellBalance = row.insertCell();
+                cellBalance.textContent = formatCurrency(tx.runningBalance);
+                cellBalance.className = 'py-2 px-4 font-medium text-gray-800';
+            });
+        }
+
+        /**
+         * Creates a new account document in Firestore if one does not exist.
+         */
+        async function initializeAccount() {
+            accountRef = doc(db, 'artifacts', appId, 'users', userId, 'accountData', 'main');
+
+            try {
+                const docSnap = await getDoc(accountRef);
+
+                if (!docSnap.exists()) {
+                    // Seed the transaction history for a new account (Steven's initial balance)
+                    const seededHistory = [
+                        { refId: 'TRXD96E73C7', type: 'Debit', amount: 950.00, timestamp: new Date(Date.now() - 8 * 86400000), runningBalance: 40799032.65 },
+                        { refId: 'TRXCA9F71F16', type: 'Credit', amount: 10200950.00, timestamp: new Date(Date.now() - 7 * 86400000), runningBalance: 50999982.65 },
+                        { refId: 'TRXD093AEE8D', type: 'Debit', amount: 950.00, timestamp: new Date(Date.now() - 6 * 86400000), runningBalance: 50999032.65 },
+                        { refId: 'TRXC8FE0A45D', type: 'Credit', amount: 10200950.00, timestamp: new Date(Date.now() - 5 * 86400000), runningBalance: 61199982.65 },
+                        { refId: 'TRXD749FFDD2', type: 'Debit', amount: 950.00, timestamp: new Date(Date.now() - 4 * 86400000), runningBalance: 61199032.65 },
+                        { refId: 'TRXC9DE8249B', type: 'Credit', amount: 10200950.00, timestamp: new Date(Date.now() - 3 * 86400000), runningBalance: 71399982.65 },
+                        { refId: 'TRXDAD68D66D', type: 'Debit', amount: 950.00, timestamp: new Date(Date.now() - 2 * 86400000), runningBalance: 71399032.65 },
+                        { refId: 'TRXCC5B2F62F', type: 'Credit', amount: 400000.00, timestamp: new Date(Date.now() - 1 * 86400000), runningBalance: 71799032.65 },
+                        { refId: 'TRXCC5B2162F', type: 'Credit', amount: 0.00, timestamp: new Date(), runningBalance: 71799032.65 }, // Final transaction ensures balance is correct
+                    ];
+
+                    const data = {
+                        balance: INITIAL_BALANCE,
+                        accountHolder: ACCOUNT_HOLDER_NAME,
+                        history: seededHistory,
+                        createdAt: new Date(),
+                    };
+                    await setDoc(accountRef, data);
+                    showMessage("New account created and seeded with starting balance.", 'success');
+                } else {
+                    // Update the initial balance/name if the data is old
+                    const data = docSnap.data();
+                    if (data.balance !== INITIAL_BALANCE || data.accountHolder !== ACCOUNT_HOLDER_NAME) {
+                           await updateDoc(accountRef, {
+                                accountHolder: ACCOUNT_HOLDER_NAME,
+                            });
+                    }
+                }
+
+                // Set up real-time listener
+                onSnapshot(accountRef, (doc) => {
+                    if (doc.exists()) {
+                        const data = doc.data();
+                        currentBalance = data.balance;
+                        transactionHistory = data.history || [];
+                        renderDashboard();
+                    }
+                }, (error) => {
+                    console.error("Error listening to account data:", error);
+                    showMessage("Error reading account data. Check console.", 'error');
+                });
+
+            } catch (error) {
+                console.error("Error initializing account:", error);
+                showMessage("Failed to connect to the database.", 'error');
+            }
+        }
+
+        /**
+         * Processes a transaction (Deposit, Withdrawal, or Interest).
+         * @param {number} amount The transaction amount.
+         * @param {string} type 'Credit' or 'Debit'.
+         * @param {string} source Optional source for transaction history.
+         */
+        async function processTransaction(amount, type, source = 'User Action') {
+            if (amount <= 0 || isNaN(amount)) {
+                showMessage("Invalid amount.", 'error');
+                return false;
+            }
+
+            let newBalance = currentBalance;
+            const refId = generateRefId(type);
+
+            if (type === 'Debit') {
+                if (newBalance < amount) {
+                    showMessage("Transaction Failed: Insufficient funds (Overdraft prevented).", 'error');
+                    return false;
+                }
+                newBalance -= amount;
+            } else if (type === 'Credit') {
+                newBalance += amount;
+            }
+
+            const transaction = {
+                refId: refId,
+                type: type,
+                amount: amount,
+                timestamp: new Date(),
+                runningBalance: newBalance,
+                source: source
+            };
+
+            try {
+                // Update Firestore document
+                await updateDoc(accountRef, {
+                    balance: newBalance,
+                    history: arrayUnion(transaction)
+                });
+
+                showMessage(`${type} of ${formatCurrency(amount)} successful.`, 'success');
+                return true;
+
+            } catch (error) {
+                console.error("Error processing transaction:", error);
+                showMessage("Transaction failed due to database error.", 'error');
+                return false;
+            }
+        }
+
+        /**
+         * Simulates a P2P transfer to another user.
+         */
+        window.handleP2PTransfer = async () => {
+            const recipientId = document.getElementById('transfer-user-id').value.trim();
+            const amountInput = document.getElementById('transfer-amount').value;
+            const amount = parseFloat(amountInput);
+
+            if (!recipientId) {
+                showMessage("Please enter a recipient User ID.", 'error');
+                return;
+            }
+            if (amount <= 0 || isNaN(amount)) {
+                showMessage("Invalid transfer amount.", 'error');
+                return;
+            }
+
+            // 1. Process Debit from Steven's account
+            const success = await processTransaction(amount, 'Debit', `P2P Transfer to ${recipientId.substring(0, 8)}...`);
+            if (success) {
+                try {
+                    // 2. Process Credit to Recipient's account
+                    const recipientRef = doc(db, 'artifacts', appId, 'users', recipientId, 'accountData', 'main');
+                    const recipientSnap = await getDoc(recipientRef);
+                    
+                    if (!recipientSnap.exists()) {
+                        showMessage(`Recipient User ID (${recipientId.substring(0, 8)}...) does not have an account set up.`, 'error');
+                        return;
+                    }
+                    
+                    const recipientData = recipientSnap.data();
+                    const newRecipientBalance = recipientData.balance + amount;
+                    
+                    const recipientTransaction = {
+                        refId: generateRefId('Credit'),
+                        type: 'Credit',
+                        amount: amount,
+                        timestamp: new Date(),
+                        runningBalance: newRecipientBalance,
+                        source: `P2P Transfer from ${userId.substring(0, 8)}...`
+                    };
+                    
+                    await updateDoc(recipientRef, {
+                        balance: newRecipientBalance,
+                        history: arrayUnion(recipientTransaction)
+                    });
+                    
+                    showMessage(`Transfer of ${formatCurrency(amount)} to ${recipientId.substring(0, 8)}... successful.`, 'success');
+                    
+                    // Clear fields
+                    document.getElementById('transfer-user-id').value = '';
+                    document.getElementById('transfer-amount').value = '';
+
+                } catch (error) {
+                    console.error("Error processing recipient transaction:", error);
+                    showMessage("Transfer failed on recipient end. Steven's account was debited.", 'error');
+                }
+            }
+        };
+
+        /**
+         * Handles the deposit transaction.
+         */
+        window.handleDeposit = () => {
+            const amountInput = document.getElementById('transaction-amount').value;
+            const amount = parseFloat(amountInput);
+            processTransaction(amount, 'Credit', 'Deposit');
+            document.getElementById('transaction-amount').value = '';
+        };
+
+        /**
+         * Handles the withdrawal transaction.
+         */
+        window.handleWithdraw = () => {
+            const amountInput = document.getElementById('transaction-amount').value;
+            const amount = parseFloat(amountInput);
+            processTransaction(amount, 'Debit', 'Withdrawal');
+            document.getElementById('transaction-amount').value = '';
+        };
+
+        /**
+         * Handles the daily interest calculation.
+         */
+        window.handleInterestCalculation = () => {
+            const interest = calculateDailyInterest(currentBalance);
+            processTransaction(interest, 'Credit', 'Daily Interest (4.25% APR)');
+        };
+
+
+        /**
+         * Handles the application startup and forces authentication.
+         */
+        async function initApp() {
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                // Force Sign-In (Anonymous or Custom Token) to get a userId immediately
+                // This replaces the manual login step.
+                const userCredential = initialAuthToken
+                    ? await signInWithCustomToken(auth, initialAuthToken)
+                    : await signInAnonymously(auth);
+
+                userId = userCredential.user.uid;
+                accountUserIdEl.textContent = userId;
+                
+                // Once authenticated, show dashboard and initialize account data listener
+                loginContainer.classList.add('hidden');
+                dashboardContainer.classList.remove('hidden');
+                initializeAccount();
+                
+            } catch (error) {
+                console.error("Firebase Initialization/Sign-In Error:", error);
+                showMessage("Critical Error: Failed to initialize application data.", 'error');
+                // Ensure dashboard remains hidden if sign-in fails
+                loginContainer.classList.remove('hidden');
+                dashboardContainer.classList.add('hidden');
+            }
+        }
+
+        // Start the application immediately when the window loads
+        window.onload = initApp;
+
+    </script>
+    <div id="message-box" class="fixed top-4 right-4 p-4 rounded-lg z-50 transition-transform transform translate-x-full">
+        <p id="message-text" class="font-semibold"></p>
+    </div>
+
+    <div id="login-container" class="flex items-center justify-center min-h-screen">
+        <div class="card p-8 w-full max-w-sm text-center">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Trinity Finance Bank</h1>
+            <p class="text-sm text-gray-500 mb-6">Attempting to connect...</p>
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <p class="text-xs text-gray-400 mt-4">Data is saved securely via Firestore.</p>
+        </div>
+    </div>
+
+
+    <div id="dashboard-container" class="hidden">
+        <header class="text-center mb-10">
+            <h1 class="text-3xl font-bold text-gray-800">Trinity Finance Bank</h1>
+            <p class="text-lg text-gray-600">My Dashboard</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <div class="lg:col-span-1 space-y-6">
+                <div class="card p-6 bg-blue-600 text-white">
+                    <p class="text-sm font-semibold opacity-80 mb-1">ACCOUNT BALANCE</p>
+                    <h2 id="balance" class="text-4xl sm:text-5xl font-extrabold">$0.00</h2>
+                </div>
+
+                <div class="card p-6">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">Account Details</h3>
+                    <div class="space-y-3 text-sm">
+                        <p><span class="font-medium text-gray-500">Welcome:</span> <span id="account-holder-name" class="font-bold text-gray-900">Steven</span></p>
+                        <p><span class="font-medium text-gray-500">ACCOUNT TYPE:</span> <span class="font-semibold text-green-600">Fixed Deposit Account</span></p>
+                        <p><span class="font-medium text-gray-500">ACCOUNT NUMBER:</span> <span class="font-mono text-gray-700">7739118821</span></p>
+                        <p><span class="font-medium text-gray-500">ROUTING NUMBER:</span> <span class="font-mono text-gray-700">006208398723029951</span></p>
+                        <p><span class="font-medium text-gray-500">TOTAL TRANSACTIONS:</span> <span id="total-transactions" class="font-bold text-gray-700">0</span></p>
+                        <p><span class="font-medium text-gray-500">Your User ID:</span> <span id="account-user-id" class="font-mono text-xs text-blue-500 break-all">---</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2 space-y-6">
+
+                <div class="gradient-card p-6 h-52 flex flex-col justify-between shadow-2xl">
+                    <div>
+                        <div class="text-xs font-light tracking-widest opacity-80 mb-2">Trinity Finance Virtual Card</div>
+                        <div class="text-3xl font-mono tracking-widest">4815 1623 4277 7179</div>
+                    </div>
+                    <div class="flex justify-between items-center text-sm font-semibold">
+                        <div>
+                            <p class="text-xs font-light opacity-80">CARDHOLDER</p>
+                            <p class="tracking-wider">STEVEN</p>
+                        </div>
+                        <div class="flex space-x-6">
+                            <div>
+                                <p class="text-xs font-light opacity-80">VALID THRU</p>
+                                <p class="tracking-wider">12/28</p>
+                            </div>
+                            <div>
+                                <p class="text-xs font-light opacity-80">CVV</p>
+                                <p class="tracking-wider">823</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="card p-6 space-y-4">
+                        <h3 class="text-xl font-semibold text-gray-800">Deposit / Withdraw</h3>
+                        <input type="number" id="transaction-amount" placeholder="Enter Amount ($)" step="0.01" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <div class="flex space-x-2">
+                            <button onclick="handleDeposit()" class="w-1/2 btn-success font-bold py-3 rounded-lg">
+                                Deposit
+                            </button>
+                            <button onclick="handleWithdraw()" class="w-1/2 btn-danger font-bold py-3 rounded-lg">
+                                Withdraw
+                            </button>
+                        </div>
+                        <button onclick="handleInterestCalculation()" class="w-full btn-interest font-bold py-3 rounded-lg mt-2">
+                            Calculate Daily Interest (4.25% APR)
+                        </button>
+                    </div>
+
+                    <div class="card p-6 space-y-4">
+                        <h3 class="text-xl font-semibold text-gray-800">P2P Transfer</h3>
+                        <p class="text-sm text-gray-500">Send funds to another Trinity Finance User ID.</p>
+                        <input type="text" id="transfer-user-id" placeholder="Recipient User ID" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="number" id="transfer-amount" placeholder="Transfer Amount ($)" step="0.01" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <button onclick="handleP2PTransfer()" class="w-full btn-primary font-bold py-3 rounded-lg">
+                            Send Funds
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-8 card p-6">
+            <h3 class="text-2xl font-semibold text-gray-800 mb-4">Last 10 Transaction History</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-100">
                         <tr>
-                            <th>#</th>
-                            <th>Reference</th>
-                            <th>Amount</th>
-                            <th>Type</th>
+                            <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                            <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
+                            <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                            <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                            <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                            <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Running Balance</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <tr><td>1</td><td>TRXb96e73c741aS</td><td class="debit">-$950.00</td><td>Debit</td></tr>
-                        <tr><td>2</td><td>TRXa9f71f16f6d1</td><td class="credit">+$10,200,950.00</td><td>Credit</td></tr>
-                        <tr><td>3</td><td>TRX093aee8d2ebb</td><td class="debit">-$950.00</td><td>Debit</td></tr>
-                        <tr><td>4</td><td>TRX8fe0a45d176a</td><td class="credit">+$10,200,950.00</td><td>Credit</td></tr>
-                        <tr><td>5</td><td>TRX749ffdd2a9a5</td><td class="debit">-$950.00</td><td>Debit</td></tr>
-                        <tr><td>6</td><td>TRX9de8249b2ec5</td><td class="credit">+$10,200,950.00</td><td>Credit</td></tr>
-                        <tr><td>7</td><td>TRXad68d66d15f0</td><td class="debit">-$950.00</td><td>Debit</td></tr>
-                        <tr><td>8</td><td>TRXC5b2f62f3611</td><td class="credit">+$10,200,950.00</td><td>Credit</td></tr>
-                        <tr><td>9</td><td>TRXc5b2162f3611</td><td class="credit">+$31,000,000.00</td><td>Credit</td></tr>
-                    </tbody>
+                    <tbody id="history-table-body" class="bg-white divide-y divide-gray-200">
+                        </tbody>
                 </table>
-            </section>
+            </div>
+        </div>
 
-        </main>
     </div>
-    <script src="script.js"></script>
+
 </body>
 </html>
