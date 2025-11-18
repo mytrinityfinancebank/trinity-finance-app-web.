@@ -1,34 +1,107 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Trinity Finance Bank | Secure Login</title>
-<link rel="stylesheet" href="login.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trinity Finance Bank Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Optional: Link to an icon library like Font Awesome for icons -->
 </head>
 <body>
-<div class="login-container">
-<div class="login-box">
-<h1>Trinity Finance Bank</h1>
-<h2>Secure Online Banking Login</h2>
-<form id="login-form">
-<div class="input-group">
-<label for="account-id">Account ID or Username</label>
-<input type="text" id="account-id" name="account-id" required>
-</div>
-<div class="input-group">
-<label for="password">Password</label>
-<input type="password" id="password" name="password" required>
-</div>
-<button type="submit" class="login-btn">Log In</button>
-</form>
-<div class="links">
-<a href="#">Forgot Password?</a> |
-<a href="#">Enroll Now</a>
-</div>
-<p class="security-note">Your security is our priority. Always check the URL.</p>
-</div>
-</div>
-<script src="login.js"></script>
+    <div class="dashboard-container">
+        <!-- 1. Side Menu & Profile -->
+        <aside class="sidebar">
+            <div class="profile-section">
+                <h3>👤 Trinity Finance Bank</h3>
+                <p>499 stratford court, Raleigh NC 27615</p>
+                <div class="customer-support">
+                    <p>Support: **(504) 499-5059**</p>
+                </div>
+                <!-- UPDATED: Log Out button now links to login.html -->
+                <a href="login.html" class="logout-btn">Log Out</a>
+            </div>
+            <nav class="nav-links">
+                <a href="#home">Dashboard</a>
+                <a href="#transfer">Transfer Options</a>
+                <a href="#history">Transactions</a>
+                <a href="#settings">Settings</a>
+            </nav>
+        </aside>
+
+        <!-- 2. Main Content -->
+        <main class="main-content">
+            <!-- Notification Bar -->
+            <header class="top-bar">
+                <h2>Welcome to Trinity Finance Bank</h2>
+                <div class="notification-bar">🔔 Account Status: Active</div>
+            </header>
+
+            <!-- Available Balance and Account Number -->
+            <section class="balance-card">
+                <div class="account-info">
+                    <p class="account-label">Account Type: **Fixed Deposited Account**</p>
+                    <p class="account-number-bar">Account No: **7739118821**</p>
+                </div>
+                <div class="balance">
+                    <p>Available Balance:</p>
+                    <h1 id="available-balance">$71,800,000.00</h1>
+                </div>
+            </section>
+
+            <!-- Credit Card Bar (Structure Added) -->
+            <section class="credit-card-bar">
+                <div class="card-details">
+                    <h3>💳 Platinum Rewards Card</h3>
+                    <p class="card-number">XXXX XXXX XXXX 4567</p>
+                    <p class="card-status">Status: **Active** | Next Payment Due: **$1,500.00**</p>
+                </div>
+            </section>
+
+            <!-- Quick Transfer/Deposit Options -->
+            <section class="quick-actions">
+                <h3>Quick Transaction</h3>
+                <form id="transfer-form">
+                    <select id="transaction-type">
+                        <option value="withdrawal">Withdrawal / Transfer</option>
+                        <option value="deposit">Deposit</option>
+                    </select>
+
+                    <input type="number" placeholder="Amount" step="0.01" required>
+                    <input type="text" placeholder="Recipient Account (For Transfers)" required>
+                    <button type="submit">Process Transaction</button>
+                </form>
+            </section>
+            
+            <hr>
+
+            <!-- Transaction History Table -->
+            <section class="transaction-history">
+                <h3>Transaction History</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Reference</th>
+                            <th>Amount</th>
+                            <th>Type</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>1</td><td>TRXb96e73c741aS</td><td class="debit">-$950.00</td><td>Debit</td></tr>
+                        <tr><td>2</td><td>TRXa9f71f16f6d1</td><td class="credit">+$10,200,950.00</td><td>Credit</td></tr>
+                        <tr><td>3</td><td>TRX093aee8d2ebb</td><td class="debit">-$950.00</td><td>Debit</td></tr>
+                        <tr><td>4</td><td>TRX8fe0a45d176a</td><td class="credit">+$10,200,950.00</td><td>Credit</td></tr>
+                        <tr><td>5</td><td>TRX749ffdd2a9a5</td><td class="debit">-$950.00</td><td>Debit</td></tr>
+                        <tr><td>6</td><td>TRX9de8249b2ec5</td><td class="credit">+$10,200,950.00</td><td>Credit</td></tr>
+                        <tr><td>7</td><td>TRXad68d66d15f0</td><td class="debit">-$950.00</td><td>Debit</td></tr>
+                        <tr><td>8</td><td>TRXC5b2f62f3611</td><td class="credit">+$10,200,950.00</td><td>Credit</td></tr>
+                        <tr><td>9</td><td>TRXc5b2162f3611</td><td class="credit">+$31,000,000.00</td><td>Credit</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+        </main>
+    </div>
+    <script src="script.js"></script>
 </body>
 </html>
