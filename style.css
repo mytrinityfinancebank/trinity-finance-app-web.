@@ -1,41 +1,70 @@
-/* Styling for the Transaction History Table */
-.transaction-history {
-    margin-top: 20px;
-    background-color: #ffffff;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
+/* ==================================== */
+/* === MOBILE RESPONSIVENESS (Media Queries) === */
+/* ==================================== */
 
-.transaction-history table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 15px;
-}
+/* Target screens smaller than 768px (common tablet/mobile breakpoint) */
+@media (max-width: 768px) {
+    
+    /* 1. Collapse the main container to stack the sidebar and main content */
+    .dashboard-container {
+        flex-direction: column;
+    }
+    
+    /* 2. Style the Sidebar for mobile */
+    .sidebar {
+        width: 100%; /* Take full width */
+        padding: 15px 20px;
+        box-sizing: border-box;
+        text-align: center;
+    }
+    
+    /* 3. Arrange navigation links horizontally for mobile */
+    .nav-links {
+        display: flex;
+        justify-content: space-around;
+        gap: 10px; /* Space between links */
+        margin-top: 10px;
+        border-top: 1px solid rgba(255, 255, 255, 0.2);
+        padding-top: 10px;
+    }
 
-.transaction-history th, .transaction-history td {
-    border: 1px solid #ddd;
-    padding: 12px 15px;
-    text-align: left;
-}
+    .nav-links a {
+        padding: 5px 10px;
+        font-size: 0.9em;
+    }
+    
+    /* 4. Adjust main content padding */
+    .main-content {
+        padding: 20px 15px;
+    }
 
-.transaction-history th {
-    background-color: #f0f4f7;
-    font-weight: bold;
-    color: #333;
-}
+    /* 5. Stack Balance Card content */
+    .balance-card {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 20px;
+    }
+    
+    .balance {
+        margin-top: 15px;
+        text-align: left;
+    }
 
-.transaction-history tr:nth-child(even) {
-    background-color: #f9f9f9;
-}
+    #available-balance {
+        font-size: 2.5em; /* Smaller font for mobile */
+    }
 
-/* Color Coding for Transaction Type */
-.debit {
-    color: #c0392b; /* Red */
-    font-weight: bold;
-}
+    /* 6. Stack Quick Action form inputs */
+    #transfer-form {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
 
-.credit {
-    color: #27ae60; /* Green */
-    font-weight: bold;
+    #transfer-form input,
+    #transfer-form select,
+    #transfer-form button {
+        width: 100%; /* Full width for inputs */
+        margin-right: 0;
+    }
 }
