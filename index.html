@@ -118,7 +118,9 @@
         const ACCOUNT_HOLDER_NAME = "Steven";
         // Starting balance requested: 71,800,000.00
         const INITIAL_BALANCE = 71800000.00; 
-        const SIMULATED_OTP = "123456"; // Hardcoded OTP for simulation
+        // Simulated OTP for local testing only. NOT displayed anywhere in the UI.
+        // NOTE: This constant exists only to let local testing work; remove for production.
+        const SIMULATED_OTP = "123456";
         
         let app;
         let db;
@@ -478,8 +480,9 @@
         window.handleOtpSubmission = async () => {
             const enteredOtp = otpInput.value.trim();
             
-            if (enteredOtp !== SIMULATED_OTP) {
-                showMessage("Invalid OTP. Please try again.", 'error');
+            // Require a 6-digit numeric OTP
+            if (!/^\d{6}$/.test(enteredOtp)) {
+                showMessage("Please enter a valid 6-digit OTP.", 'error');
                 otpInput.value = '';
                 return;
             }
@@ -487,6 +490,13 @@
             if (!pendingTransfer) {
                 showMessage("Security error: No pending transfer data.", 'error');
                 window.hideOtpModal();
+                return;
+            }
+
+            // Compare against the simulated OTP constant (local testing only)
+            if (enteredOtp !== SIMULATED_OTP) {
+                showMessage("Invalid OTP. Please try again.", 'error');
+                otpInput.value = '';
                 return;
             }
 
@@ -791,8 +801,6 @@
         <div class="modal-content text-center">
             <h3 class="text-xl font-bold text-gray-800 mb-4">Transfer Verification</h3>
             <p class="text-gray-600 mb-4">Please enter the 6-digit One-Time Password (OTP) to confirm your transfer.</p>
-            <p class="text-sm font-semibold text-red-500 mb-4">SIMULATED OTP: 123456</p>
-            
             <input 
                 type="text" 
                 id="otp-input" 
