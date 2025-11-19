@@ -293,9 +293,8 @@
             const daysAgo = (days) => new Date(Date.now() - days * 86400000);
             let current_rb = 0.00;
 
-            // --- UPDATED SEEDED HISTORY to match all user requests exactly ---
-            // Net Change from the 9 user-requested transactions is exactly $71,800,000.00
-            // Initial Funding required: 71,800,000.00 (Target) - 71,800,000.00 (Net Change) = 0.00
+            // --- UPDATED SEEDED HISTORY to match all user requests exactly (and ensure balance is $71,800,000.00) ---
+            
             const seededHistory = [
                 // 1. Initial Calculated Seed to ensure final balance hits 71,800,000.00 (Must be $0)
                 { refId: 'TRXCFUND0000', type: 'Credit', amount: 0.00, timestamp: daysAgo(30), runningBalance: current_rb += 0.00, source: 'Initial Account Funding' }, 
@@ -334,25 +333,23 @@
             try {
                 const docSnap = await getDoc(accountRef);
 
-                if (!docSnap.exists()) {
-                    
-                    const finalRunningBalance = calculatedInitialBalance; // Should be 71800000.00
+                const finalRunningBalance = calculatedInitialBalance; // 71800000.00
 
-                    const data = {
-                        balance: finalRunningBalance,
-                        accountHolder: ACCOUNT_HOLDER_NAME,
-                        history: seededHistory,
-                        createdAt: new Date(),
-                    };
-                    await setDoc(accountRef, data);
+                const dataToSet = {
+                    balance: finalRunningBalance,
+                    accountHolder: ACCOUNT_HOLDER_NAME,
+                    history: seededHistory, // Always set the user's latest requested history
+                    // Preserve the original creation date if the document exists
+                    createdAt: docSnap.exists() && docSnap.data().createdAt ? docSnap.data().createdAt : new Date(), 
+                };
+
+                if (!docSnap.exists()) {
+                    await setDoc(accountRef, dataToSet);
                     showMessage("New account created and seeded with starting balance.", 'success');
                 } else {
-                    const data = docSnap.data();
-                    if (data.accountHolder !== ACCOUNT_HOLDER_NAME) {
-                           await updateDoc(accountRef, {
-                                accountHolder: ACCOUNT_HOLDER_NAME,
-                            });
-                    }
+                    // FIX: Force update the existing document with the new name, balance, and history.
+                    await updateDoc(accountRef, dataToSet); 
+                    // Optional: showMessage("Account data updated with new history and balance.", 'success');
                 }
 
                 // Set up real-time listener
@@ -360,6 +357,7 @@
                     if (doc.exists()) {
                         const data = doc.data();
                         currentBalance = data.balance;
+                        // The history will now be the one we just updated
                         transactionHistory = Array.isArray(data.history) ? data.history : [];
                         renderDashboard(); // Always update dashboard
                         
