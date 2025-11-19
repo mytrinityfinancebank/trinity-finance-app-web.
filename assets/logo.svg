@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="64" viewBox="0 0 240 64" role="img" aria-labelledby="logo-title logo-desc">
+  <title id="logo-title">Trinity Finance logo</title>
+  <desc id="logo-desc">Stylized TF monogram in blue gradient</desc>
+  <defs>
+    <linearGradient id="g1" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#06b6d4"/>
+    </linearGradient>
+    <filter id="s" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#0b1220" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+
+  <!-- circle mark -->
+  <g filter="url(#s)">
+    <rect x="0" y="0" rx="12" ry="12" width="64" height="64" fill="url(#g1)"/>
+  </g>
+
+  <!-- monogram TF -->
+  <g transform="translate(10,44)" fill="#fff" font-family="Inter, system-ui, Arial" font-weight="700" font-size="34">
+    <text x="0" y="-6">T</text>
+    <text x="24" y="-6" transform="scale(1,1)">F</text>
+  </g>
+
+  <!-- wordmark -->
+  <g transform="translate(84,40)">
+    <text x="0" y="-6" font-family="Inter, system-ui, Arial" font-weight="700" font-size="20" fill="#111827">Trinity</text>
+    <text x="0" y="16" font-family="Inter, system-ui, Arial" font-weight="600" font-size="12" fill="#374151">Finance</text>
+  </g>
+</svg>
