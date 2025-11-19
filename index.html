@@ -116,6 +116,8 @@
         // --- APP STATE AND CONSTANTS ---
         const ACCOUNT_HOLDER_NAME = "Steven Arney"; 
         const INITIAL_BALANCE = 71800000.00; 
+        const BANK_ADDRESS = "499 Stratford Court, Raleigh NC 27615"; // New Constant
+        const SUPPORT_NUMBER = "(504) 499-5059"; // New Constant
         // Simulated OTP for local testing only. NOT displayed anywhere in the UI.
         const SIMULATED_OTP = "123456";
         
@@ -142,6 +144,8 @@
         const accountHolderEl = document.getElementById('account-holder-name');
         const otpModal = document.getElementById('otp-modal');
         const otpInput = document.getElementById('otp-input');
+        const bankAddressEl = document.getElementById('bank-address'); // New Ref
+        const supportNumberEl = document.getElementById('support-number'); // New Ref
         
         // Action buttons
         const transferSubmitBtn = document.getElementById('transfer-submit-btn');
@@ -274,6 +278,8 @@
             balanceEl.textContent = formatCurrency(currentBalance);
             accountHolderEl.textContent = ACCOUNT_HOLDER_NAME;
             totalTransactionsEl.textContent = transactionHistory.length;
+            bankAddressEl.textContent = BANK_ADDRESS; // Set Address
+            supportNumberEl.textContent = SUPPORT_NUMBER; // Set Support Number
             
             // Render only the last 10 transactions on the dashboard (most recent first)
             renderHistoryTable(dashboardHistoryBody, transactionHistory, 10);
@@ -620,11 +626,11 @@
             
             <div class="space-y-4 mb-6">
                 <div>
-                    <input type="text" id="login-username" placeholder="User ID (stevenarny@987)" required 
+                    <input type="text" id="login-username" placeholder="User ID" required 
                            class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                 <div>
-                    <input type="password" id="login-password" placeholder="Password (Arney987)" required 
+                    <input type="password" id="login-password" placeholder="Password" required 
                            class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
             </div>
@@ -633,8 +639,7 @@
                 Sign In
             </button>
             
-            <p class="text-xs text-gray-400 mt-4">Required Credentials: User ID: **stevenarny@987**, Password: **Arney987**.</p>
-        </div>
+            </div>
     </div>
 
 
@@ -781,6 +786,12 @@
                 </div>
             </div>
         </div>
+
+        <footer class="mt-12 text-center text-gray-500 border-t pt-6">
+            <p class="text-sm font-semibold mb-2">Trinity Finance Bank</p>
+            <p class="text-xs mb-1">Address: <span id="bank-address" class="font-medium"></span></p>
+            <p class="text-xs">Customer Support: <span id="support-number" class="font-medium"></span></p>
+        </footer>
 
     </div>
 
