@@ -295,7 +295,7 @@
             
             let current_rb = 0.00;
 
-            // --- SEEDED HISTORY (Dates set to June - December 2016) ---
+            // --- SEEDED HISTORY (Dates set to June - November 2016 for user's request) ---
             const seededHistory = [
                 // 1. Initial Calculated Seed
                 { refId: 'TRXCFUND0000', type: 'Credit', amount: 0.00, timestamp: new Date('2016-06-01'), runningBalance: current_rb += 0.00, source: 'Initial Account Funding' }, 
@@ -327,14 +327,14 @@
                 // 10. Bank Charges DEBIT $950 (User Requested #9)
                 { refId: 'TRXD950D', type: 'Debit', amount: 950.00, timestamp: new Date('2016-11-30'), runningBalance: current_rb -= 950.00, source: 'Bank Charges' },
             ];
-            const calculatedInitialBalance = current_rb; 
+            const calculatedInitialBalance = current_rb; // This value is exactly 71,800,000.00
             // --- END SEEDED HISTORY ---
 
 
             try {
                 const docSnap = await getDoc(accountRef);
 
-                const finalRunningBalance = calculatedInitialBalance; // 71800000.00
+                const finalRunningBalance = calculatedInitialBalance; 
 
                 const dataToSet = {
                     balance: finalRunningBalance,
@@ -349,6 +349,7 @@
                     await setDoc(accountRef, dataToSet);
                     showMessage("New account created and seeded with starting balance.", 'success');
                 } else {
+                    // Always update with the latest seeded data to fix any manual changes in the history
                     await updateDoc(accountRef, dataToSet); 
                 }
 
@@ -383,8 +384,8 @@
             const passwordInput = document.getElementById('login-password').value.trim();
             
             // Define required credentials
-            const REQUIRED_USER_ID = "stevenarny@987"; // The user's input ID
-            const REQUIRED_PASSWORD = "Arney987"; // The user's requested password
+            const REQUIRED_USER_ID = "stevenarny@987"; 
+            const REQUIRED_PASSWORD = "Arney987"; 
             
             // Firestore-safe ID based on the user's request (used for persistence)
             const PERSISTENT_USER_ID = "stevenarny987"; 
@@ -588,7 +589,7 @@
             try {
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
-                auth = getAuth(app); // Still need auth for anonymous sign-in in a real setup, but here we'll just set it up.
+                auth = getAuth(app); 
                 setLogLevel('debug');
                 
                 // Show the body content now that the script has initialized
@@ -635,13 +636,6 @@
                 Sign In
             </button>
         </div>
-        
-        <div class="text-center text-gray-500 mt-6">
-            <p class="text-sm font-semibold mb-1">Trinity Finance Bank</p>
-            <p class="text-xs">Address: 499 Stratford Court, Raleigh NC 27615</p>
-            <p class="text-xs">Customer Support: (504) 499-5059</p>
-        </div>
-        
     </div>
 
 
@@ -676,9 +670,7 @@
                             <p><span class="font-medium text-gray-500">ACCOUNT NUMBER:</span> <span class="font-mono text-gray-700">7739118821</span></p>
                             <p><span class="font-medium text-gray-500">TOTAL TRANSACTIONS:</span> <span id="total-transactions" class="font-bold text-gray-700">0</span></p>
                             <p><span class="font-medium text-gray-500">Your User ID (Persistent):</span> <span id="account-user-id" class="font-mono text-xs text-blue-500 break-all">---</span></p>
-                            <p><span class="font-medium text-gray-500">Bank Address:</span> <span class="font-bold text-gray-900">499 Stratford Court, Raleigh NC 27615</span></p>
-                            <p><span class="font-medium text-gray-500">Customer Support:</span> <span class="font-bold text-gray-900">(504) 499-5059</span></p>
-                        </div>
+                            </div>
                     </div>
                 </div>
 
@@ -816,6 +808,12 @@
             </div>
         </div>
     </div>
+    
+    <footer id="app-footer" class="text-center text-gray-500 mt-12 mb-4 p-4">
+        <p class="text-sm font-semibold mb-1">Trinity Finance Bank</p>
+        <p class="text-xs">Address: 499 Stratford Court, Raleigh NC 27615</p>
+        <p class="text-xs">Customer Support: (504) 499-5059</p>
+    </footer>
 
 </body>
 </html>
