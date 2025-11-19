@@ -8,7 +8,7 @@
     <style>
         /* Custom Styles for Aesthetics and Responsiveness */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f7fafc; }
+        body { font-family: 'Inter', sans-serif; background-color: #f7fafc; visibility: hidden; } /* HIDE BODY UNTIL JS LOADS */
         .card { background-color: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1); }
         .gradient-card { 
             background: linear-gradient(135deg, #1f2937 0%, #4b5563 100%);
@@ -129,6 +129,7 @@
         let pendingTransfer = null; 
         
         // --- HTML Element References ---
+        const bodyEl = document.querySelector('body');
         const balanceEl = document.getElementById('balance');
         const dashboardHistoryBody = document.getElementById('dashboard-history-body');
         const fullHistoryTableBody = document.getElementById('full-history-table-body');
@@ -290,41 +291,39 @@
             // Relies on userId being set by handleLogin
             accountRef = doc(db, 'artifacts', appId, 'users', userId, 'accountData', 'main'); 
             
-            // Helper function to create a date x days ago
-            const daysAgo = (days) => new Date(Date.now() - days * 86400000);
             let current_rb = 0.00;
 
-            // --- SEEDED HISTORY ---
+            // --- SEEDED HISTORY (Dates set to June - December 2016) ---
             const seededHistory = [
-                // 1. Initial Calculated Seed to ensure final balance hits 71,800,000.00 (Must be $0)
-                { refId: 'TRXCFUND0000', type: 'Credit', amount: 0.00, timestamp: daysAgo(30), runningBalance: current_rb += 0.00, source: 'Initial Account Funding' }, 
+                // 1. Initial Calculated Seed
+                { refId: 'TRXCFUND0000', type: 'Credit', amount: 0.00, timestamp: new Date('2016-06-01'), runningBalance: current_rb += 0.00, source: 'Initial Account Funding' }, 
                 
                 // 2. Gold Linked Investment CREDIT $31,000,000.00 (User Requested #1)
-                { refId: 'TRXCGOLD31M', type: 'Credit', amount: 31000000.00, timestamp: daysAgo(25), runningBalance: current_rb += 31000000.00, source: 'Gold Linked Investment' }, 
+                { refId: 'TRXCGOLD31M', type: 'Credit', amount: 31000000.00, timestamp: new Date('2016-06-25'), runningBalance: current_rb += 31000000.00, source: 'Gold Linked Investment' }, 
                 
                 // 3. Aegis Wealth Planner Investment CREDIT $10,200,950.00 (User Requested #2)
-                { refId: 'TRXCAEGIS10M1', type: 'Credit', amount: 10200950.00, timestamp: daysAgo(20), runningBalance: current_rb += 10200950.00, source: 'Aegis Wealth Planner Investment' }, 
+                { refId: 'TRXCAEGIS10M1', type: 'Credit', amount: 10200950.00, timestamp: new Date('2016-07-20'), runningBalance: current_rb += 10200950.00, source: 'Aegis Wealth Planner Investment' }, 
                 
                 // 4. Bank Charges DEBIT $950 (User Requested #3)
-                { refId: 'TRXD950A', type: 'Debit', amount: 950.00, timestamp: daysAgo(18), runningBalance: current_rb -= 950.00, source: 'Bank Charges' }, 
+                { refId: 'TRXD950A', type: 'Debit', amount: 950.00, timestamp: new Date('2016-08-05'), runningBalance: current_rb -= 950.00, source: 'Bank Charges' }, 
                 
                 // 5. Aegis Wealth Planner Investment CREDIT $10,200,950.00 (User Requested #4)
-                { refId: 'TRXCAEGIS10M2', type: 'Credit', amount: 10200950.00, timestamp: daysAgo(15), runningBalance: current_rb += 10200950.00, source: 'Aegis Wealth Planner Investment' }, 
+                { refId: 'TRXCAEGIS10M2', type: 'Credit', amount: 10200950.00, timestamp: new Date('2016-08-20'), runningBalance: current_rb += 10200950.00, source: 'Aegis Wealth Planner Investment' }, 
                 
                 // 6. Bank Charges DEBIT $950 (User Requested #5)
-                { refId: 'TRXD950B', type: 'Debit', amount: 950.00, timestamp: daysAgo(13), runningBalance: current_rb -= 950.00, source: 'Bank Charges' }, 
+                { refId: 'TRXD950B', type: 'Debit', amount: 950.00, timestamp: new Date('2016-09-10'), runningBalance: current_rb -= 950.00, source: 'Bank Charges' }, 
                 
                 // 7. Aegis Wealth Planner Investment CREDIT $10,200,950.00 (User Requested #6)
-                { refId: 'TRXCAEGIS10M3', type: 'Credit', amount: 10200950.00, timestamp: daysAgo(10), runningBalance: current_rb += 10200950.00, source: 'Aegis Wealth Planner Investment' }, 
+                { refId: 'TRXCAEGIS10M3', type: 'Credit', amount: 10200950.00, timestamp: new Date('2016-10-01'), runningBalance: current_rb += 10200950.00, source: 'Aegis Wealth Planner Investment' }, 
                 
                 // 8. Bank Charges DEBIT $950 (User Requested #7)
-                { refId: 'TRXD950C', type: 'Debit', amount: 950.00, timestamp: daysAgo(8), runningBalance: current_rb -= 950.00, source: 'Bank Charges' }, 
+                { refId: 'TRXD950C', type: 'Debit', amount: 950.00, timestamp: new Date('2016-10-20'), runningBalance: current_rb -= 950.00, source: 'Bank Charges' }, 
                 
                 // 9. Aegis Wealth Planner Investment CREDIT $10,200,950.00 (User Requested #8)
-                { refId: 'TRXCAEGIS10M4', type: 'Credit', amount: 10200950.00, timestamp: daysAgo(5), runningBalance: current_rb += 10200950.00, source: 'Aegis Wealth Planner Investment' }, 
+                { refId: 'TRXCAEGIS10M4', type: 'Credit', amount: 10200950.00, timestamp: new Date('2016-11-05'), runningBalance: current_rb += 10200950.00, source: 'Aegis Wealth Planner Investment' }, 
                 
                 // 10. Bank Charges DEBIT $950 (User Requested #9)
-                { refId: 'TRXD950D', type: 'Debit', amount: 950.00, timestamp: new Date(), runningBalance: current_rb -= 950.00, source: 'Bank Charges' },
+                { refId: 'TRXD950D', type: 'Debit', amount: 950.00, timestamp: new Date('2016-11-30'), runningBalance: current_rb -= 950.00, source: 'Bank Charges' },
             ];
             const calculatedInitialBalance = current_rb; 
             // --- END SEEDED HISTORY ---
@@ -427,7 +426,6 @@
             }
         };
 
-        // ... processTransaction, showOtpModal, handleOtpSubmission, handleBankTransfer functions remain here ...
         async function processTransaction(amount, type, source = 'User Action') {
             if (amount <= 0 || isNaN(amount)) {
                 showMessage("Invalid amount.", 'error');
@@ -458,11 +456,12 @@
                         newBalance = currentBalanceInTx + amount;
                     }
 
+                    // For new transactions, we'll use the current date/time
                     const newTransaction = {
                         refId: refId,
                         type: type,
                         amount: amount,
-                        timestamp: new Date(),
+                        timestamp: new Date(), 
                         runningBalance: newBalance,
                         source: source
                     };
@@ -589,6 +588,9 @@
                 db = getFirestore(app);
                 auth = getAuth(app); // Still need auth for anonymous sign-in in a real setup, but here we'll just set it up.
                 setLogLevel('debug');
+                
+                // Show the body content now that the script has initialized
+                bodyEl.style.visibility = 'visible'; 
                 
                 // Keep the login container visible and wait for user interaction
                 loginContainer.classList.remove('hidden');
@@ -757,7 +759,7 @@
 
         <div id="history-content" class="app-page hidden">
             <h2 class="text-2xl font-bold text-gray-800 mb-6">Full Transaction History</h2>
-            <p class="text-gray-600 mb-4">Displaying all transactions chronologically: **Last Month to Recent**.</p>
+            <p class="text-gray-600 mb-4">Displaying all transactions chronologically: **June 2016 to November 2016**.</p>
 
             <div class="mt-4 card p-6">
                 <div class="overflow-x-auto">
