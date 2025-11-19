@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Trinity Finance Bank Dashboard</title>
-    <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Custom Styles for Aesthetics and Responsiveness */
@@ -115,11 +114,11 @@
         const appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.projectId || 'default-app-id';
         
         // --- APP STATE AND CONSTANTS ---
-        const ACCOUNT_HOLDER_NAME = "Steven";
+        // CHANGE: Updated Name
+        const ACCOUNT_HOLDER_NAME = "Steven Arney";
         // Starting balance requested: 71,800,000.00
         const INITIAL_BALANCE = 71800000.00; 
         // Simulated OTP for local testing only. NOT displayed anywhere in the UI.
-        // NOTE: This constant exists only to let local testing work; remove for production.
         const SIMULATED_OTP = "123456";
         
         let app;
@@ -146,15 +145,12 @@
         const otpInput = document.getElementById('otp-input');
         
         // Action buttons
-        const depositBtn = document.getElementById('deposit-btn');
-        const withdrawBtn = document.getElementById('withdraw-btn');
         const transferSubmitBtn = document.getElementById('transfer-submit-btn');
 
         // --- Utility Functions ---
 
         function setActionButtonsDisabled(disabled) {
-            depositBtn && (depositBtn.disabled = disabled);
-            withdrawBtn && (withdrawBtn.disabled = disabled);
+            // Deposit/Withdraw buttons removed, only checking transfer btn
             transferSubmitBtn && (transferSubmitBtn.disabled = disabled);
         }
 
@@ -213,7 +209,7 @@
             const sortedHistory = [...history].sort((a, b) => {
                 const dateA = typeof a.timestamp.toDate === 'function' ? a.timestamp.toDate() : new Date(a.timestamp);
                 const dateB = typeof b.timestamp.toDate === 'function' ? b.timestamp.toDate() : new Date(b.timestamp);
-                return dateA - dateB; // Sort ascending (Last Month to Recent)
+                return dateA - dateB; // Sort ascending (Oldest to Newest)
             });
 
             // If a limit is set, reverse the array to show the most recent transactions first, then slice.
@@ -267,10 +263,9 @@
                 cellBalance.className = 'py-2 px-4 font-medium text-gray-800';
             });
 
-            // For the full history page, the desired order is "Last Month to Recent" (Ascending Date)
-            // So if no limit, the loop above should insert the oldest first, making the table appear oldest to newest.
+            // For the full history page, the desired order is Ascending Date
             if (!limit) {
-                 // Clear the table and re-insert in ascending order for "Last Month to Recent" view
+                 // Clear the table and re-insert in ascending order
                 tableBody.innerHTML = '';
                 // Note: The index here is just a row number, not the database index.
                 sortedHistory.forEach((tx, index) => { 
@@ -325,7 +320,6 @@
 
         function renderFullHistory() {
             if (fullHistoryTableBody) {
-                // Render all transactions in chronological order (Last Month to Recent)
                 renderHistoryTable(fullHistoryTableBody, transactionHistory, null);
             }
         }
@@ -334,35 +328,32 @@
         async function initializeAccount() {
             accountRef = doc(db, 'artifacts', appId, 'users', userId, 'accountData', 'main');
             
-            // Helper function to create a date x days ago
-            const daysAgo = (days) => new Date(Date.now() - days * 86400000);
-
             try {
                 const docSnap = await getDoc(accountRef);
 
                 if (!docSnap.exists()) {
-                    // Seed data with transactions spanning the last month for the history page requirement
-                    // The starting point for this history is calculated to ensure the final balance is $71,800,000.00
+                    // CHANGE: Dates set to 2016
+                    // Seed data with transactions spanning 2016
                     const seededHistory = [
                         // Base starting balance is 71,798,950.00
-                        { refId: 'TRXD96E73C7', type: 'Debit', amount: 450.00, timestamp: daysAgo(29), runningBalance: 71799550.00, source: 'Online Payment - Utility' }, 
-                        { refId: 'TRXCA9F71F16', type: 'Credit', amount: 1200.00, timestamp: daysAgo(25), runningBalance: 71800750.00, source: 'Salary Deposit' }, 
-                        { refId: 'TRXD093AEE8D', type: 'Debit', amount: 250.00, timestamp: daysAgo(18), runningBalance: 71800500.00, source: 'Rent Payment' }, 
-                        { refId: 'TRXC8FE0A45D', type: 'Credit', amount: 50.00, timestamp: daysAgo(15), runningBalance: 71800550.00, source: 'Refund - Online Store' }, 
-                        { refId: 'TRXD749FFDD2', type: 'Debit', amount: 150.00, timestamp: daysAgo(10), runningBalance: 71800400.00, source: 'Grocery Store' }, 
-                        { refId: 'TRXC9DE8249B', type: 'Credit', amount: 500.00, timestamp: daysAgo(5), runningBalance: 71800900.00, source: 'Investment Payout' }, 
-                        { refId: 'TRXDAD68D66D', type: 'Debit', amount: 50.00, timestamp: daysAgo(3), runningBalance: 71800850.00, source: 'Coffee Shop' }, 
-                        { refId: 'TRXCC5B2F62F', type: 'Credit', amount: 200.00, timestamp: daysAgo(1), runningBalance: 71801050.00, source: 'Freelance Income' }, 
-                        { refId: 'TRXCC5B2162F', type: 'Credit', amount: -1050.00, timestamp: new Date(), runningBalance: 71800000.00, source: 'Initial Seed Adjustment' },
+                        { refId: 'TRXD96E73C7', type: 'Debit', amount: 450.00, timestamp: new Date('2016-01-15'), runningBalance: 71799550.00, source: 'Online Payment - Utility' }, 
+                        { refId: 'TRXCA9F71F16', type: 'Credit', amount: 1200.00, timestamp: new Date('2016-02-28'), runningBalance: 71800750.00, source: 'Salary Deposit' }, 
+                        { refId: 'TRXD093AEE8D', type: 'Debit', amount: 250.00, timestamp: new Date('2016-03-05'), runningBalance: 71800500.00, source: 'Rent Payment' }, 
+                        { refId: 'TRXC8FE0A45D', type: 'Credit', amount: 50.00, timestamp: new Date('2016-04-10'), runningBalance: 71800550.00, source: 'Refund - Online Store' }, 
+                        { refId: 'TRXD749FFDD2', type: 'Debit', amount: 150.00, timestamp: new Date('2016-05-20'), runningBalance: 71800400.00, source: 'Grocery Store' }, 
+                        { refId: 'TRXC9DE8249B', type: 'Credit', amount: 500.00, timestamp: new Date('2016-07-15'), runningBalance: 71800900.00, source: 'Investment Payout' }, 
+                        { refId: 'TRXDAD68D66D', type: 'Debit', amount: 50.00, timestamp: new Date('2016-09-22'), runningBalance: 71800850.00, source: 'Coffee Shop' }, 
+                        { refId: 'TRXCC5B2F62F', type: 'Credit', amount: 200.00, timestamp: new Date('2016-11-01'), runningBalance: 71801050.00, source: 'Freelance Income' }, 
+                        { refId: 'TRXCC5B2162F', type: 'Credit', amount: -1050.00, timestamp: new Date('2016-12-31'), runningBalance: 71800000.00, source: 'Initial Seed Adjustment' },
                     ];
-                    // The actual starting balance is 71800000.00 (the final running balance of the seeded history)
+                    // The actual starting balance is 71800000.00
                     const actualInitialBalance = INITIAL_BALANCE;
 
                     const data = {
                         balance: actualInitialBalance,
                         accountHolder: ACCOUNT_HOLDER_NAME,
                         history: seededHistory,
-                        createdAt: new Date(),
+                        createdAt: new Date('2016-01-01'),
                     };
                     await setDoc(accountRef, data);
                     showMessage("New account created and seeded with starting balance.", 'success');
@@ -552,24 +543,7 @@
             window.showOtpModal();
         };
 
-        window.handleDeposit = async () => {
-            const amountInput = document.getElementById('transaction-amount').value;
-            const amount = parseFloat(amountInput);
-            const success = await processTransaction(amount, 'Credit', 'Deposit');
-            if (success) {
-                document.getElementById('transaction-amount').value = '';
-            }
-        };
-
-        window.handleWithdraw = async () => {
-            const amountInput = document.getElementById('transaction-amount').value;
-            const amount = parseFloat(amountInput);
-            const success = await processTransaction(amount, 'Debit', 'Withdrawal');
-            if (success) {
-                document.getElementById('transaction-amount').value = '';
-            }
-        };
-
+        // (Deposit/Withdraw logic removed from UI, but functions kept if needed later)
 
         // --- Initialization ---
         async function initApp() {
@@ -594,11 +568,9 @@
                 await initializeAccount();
                 
                 // Attach event listeners for the current page
-                document.getElementById('deposit-btn').onclick = window.handleDeposit;
-                document.getElementById('withdraw-btn').onclick = window.handleWithdraw;
                 document.getElementById('transfer-submit-btn').onclick = window.handleBankTransfer;
-                document.getElementById('otp-submit-btn').onclick = window.handleOtpSubmission; // New OTP submit listener
-                document.getElementById('otp-cancel-btn').onclick = window.hideOtpModal; // New OTP cancel listener
+                document.getElementById('otp-submit-btn').onclick = window.handleOtpSubmission;
+                document.getElementById('otp-cancel-btn').onclick = window.hideOtpModal;
                 
                 // Navigate to the Dashboard initially
                 window.navigateTo('dashboard-content');
@@ -615,12 +587,10 @@
 
     </script>
 
-    <!-- Global Message Box -->
     <div id="message-box" class="fixed top-4 right-4 p-4 rounded-lg z-50 transition-transform transform translate-x-full">
         <p id="message-text" class="font-semibold"></p>
     </div>
 
-    <!-- Login Screen (Waiting state before auth completes) -->
     <div id="login-container" class="flex items-center justify-center min-h-screen">
         <div class="card p-8 w-full max-w-sm text-center">
             <h1 class="text-3xl font-bold text-gray-800 mb-2">Trinity Finance Bank</h1>
@@ -631,7 +601,6 @@
     </div>
 
 
-    <!-- Main Content Wrapper (Contains all pages) -->
     <div id="main-content" class="hidden">
         <header class="mb-10 card p-4">
             <div class="flex flex-col md:flex-row justify-between items-center">
@@ -644,25 +613,21 @@
             </div>
         </header>
 
-        <!-- DASHBOARD PAGE CONTENT -->
         <div id="dashboard-content" class="app-page">
             <p class="text-lg text-gray-600 mb-6">Overview</p>
             
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                <!-- Column 1: Balance and Account Info -->
                 <div class="lg:col-span-1 space-y-6">
-                    <!-- Balance Card -->
                     <div class="card p-6 bg-blue-600 text-white">
                         <p class="text-sm font-semibold opacity-80 mb-1">ACCOUNT BALANCE</p>
                         <h2 id="balance" class="text-4xl sm:text-5xl font-extrabold">$0.00</h2>
                     </div>
 
-                    <!-- Account Holder Details -->
                     <div class="card p-6">
                         <h3 class="text-xl font-semibold text-gray-800 mb-4">Account Details</h3>
                         <div class="space-y-3 text-sm">
-                            <p><span class="font-medium text-gray-500">Welcome:</span> <span id="account-holder-name" class="font-bold text-gray-900">Steven</span></p>
+                            <p><span class="font-medium text-gray-500">Welcome:</span> <span id="account-holder-name" class="font-bold text-gray-900">Steven Arney</span></p>
                             <p><span class="font-medium text-gray-500">ACCOUNT TYPE:</span> <span class="font-semibold text-green-600">Fixed Deposit Account</span></p>
                             <p><span class="font-medium text-gray-500">ACCOUNT NUMBER:</span> <span class="font-mono text-gray-700">7739118821</span></p>
                             <p><span class="font-medium text-gray-500">TOTAL TRANSACTIONS:</span> <span id="total-transactions" class="font-bold text-gray-700">0</span></p>
@@ -671,10 +636,8 @@
                     </div>
                 </div>
 
-                <!-- Column 2 & 3: Virtual Card and Actions -->
                 <div class="lg:col-span-2 space-y-6">
 
-                    <!-- Virtual Card -->
                     <div class="gradient-card p-6 h-52 flex flex-col justify-between shadow-2xl">
                         <div>
                             <div class="text-xs font-light tracking-widest opacity-80 mb-2">Trinity Finance Virtual Card</div>
@@ -683,7 +646,7 @@
                         <div class="flex justify-between items-center text-sm font-semibold">
                             <div>
                                 <p class="text-xs font-light opacity-80">CARDHOLDER</p>
-                                <p class="tracking-wider">STEVEN</p>
+                                <p class="tracking-wider">STEVEN ARNEY</p>
                             </div>
                             <div class="flex space-x-6">
                                 <div>
@@ -698,24 +661,9 @@
                         </div>
                     </div>
 
-                    <!-- Deposit/Withdraw Card -->
-                    <div class="card p-6 space-y-4">
-                        <h3 class="text-xl font-semibold text-gray-800">Quick Actions</h3>
-                        <input type="number" id="transaction-amount" placeholder="Enter Amount ($)" step="0.01" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <div class="flex space-x-2">
-                            <button id="deposit-btn" class="w-1/2 btn-success font-bold py-3 rounded-lg">
-                                Deposit
-                            </button>
-                            <button id="withdraw-btn" class="w-1/2 btn-danger font-bold py-3 rounded-lg">
-                                Withdraw
-                            </button>
-                        </div>
                     </div>
-
-                </div>
             </div>
 
-            <!-- Transaction History Table (Last 10) -->
             <div class="mt-8 card p-6">
                 <h3 class="text-2xl font-semibold text-gray-800 mb-4">Recent Transactions (Last 10)</h3>
                 <div class="overflow-x-auto">
@@ -732,14 +680,12 @@
                             </tr>
                         </thead>
                         <tbody id="dashboard-history-body" class="bg-white divide-y divide-gray-200">
-                            <!-- History rows inserted here by JavaScript -->
-                        </tbody>
+                            </tbody>
                     </table>
                 </div>
             </div>
         </div>
 
-        <!-- BANK TRANSFER PAGE CONTENT -->
         <div id="transfer-content" class="app-page hidden">
             <h2 class="text-2xl font-bold text-gray-800 mb-6">Initiate Bank Transfer</h2>
 
@@ -767,7 +713,6 @@
             </div>
         </div>
 
-        <!-- FULL HISTORY PAGE CONTENT -->
         <div id="history-content" class="app-page hidden">
             <h2 class="text-2xl font-bold text-gray-800 mb-6">Full Transaction History</h2>
             <p class="text-gray-600 mb-4">Displaying all transactions chronologically: **Last Month to Recent**.</p>
@@ -787,8 +732,7 @@
                             </tr>
                         </thead>
                         <tbody id="full-history-table-body" class="bg-white divide-y divide-gray-200">
-                            <!-- All history rows inserted here by renderFullHistory() -->
-                        </tbody>
+                            </tbody>
                     </table>
                 </div>
             </div>
@@ -796,7 +740,6 @@
 
     </div>
 
-    <!-- New OTP Verification Modal -->
     <div id="otp-modal" class="modal-overlay hidden">
         <div class="modal-content text-center">
             <h3 class="text-xl font-bold text-gray-800 mb-4">Transfer Verification</h3>
