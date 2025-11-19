@@ -179,6 +179,24 @@
             return prefix + Math.random().toString(16).substring(2, 10).toUpperCase();
         };
 
+        // New helpers for routing/account masking & validation
+        function maskLast4(value) {
+            if (!value) return '';
+            const s = String(value);
+            if (s.length <= 4) return s;
+            return '****' + s.slice(-4);
+        }
+
+        function validateRouting(value) {
+            if (!value) return true; // optional
+            const v = value.replace(/\s|-/g, '');
+            if (/^\d{9}$/.test(v)) return true;           // US routing (ACH)
+            if (/^\d{6}$/.test(v)) return true;           // UK sort code (digits only)
+            if (/^[A-Z0-9]{8,11}$/i.test(v)) return true; // SWIFT/BIC (8 or 11)
+            if (/^[A-Z0-9]{10,34}$/i.test(v)) return true; // IBAN (loose check)
+            return false;
+        }
+
         // --- Navigation Logic (SPA) ---
 
         window.navigateTo = function(pageId) {
@@ -512,6 +530,7 @@
                 // Clear form and navigate back to the dashboard upon success
                 document.getElementById('transfer-bank-name').value = '';
                 document.getElementById('transfer-account-number').value = '';
+                document.getElementById('transfer-routing-number') && (document.getElementById('transfer-routing-number').value = '');
                 document.getElementById('transfer-amount').value = '';
                 window.navigateTo('dashboard-content');
             }
@@ -524,6 +543,7 @@
         window.handleBankTransfer = async () => {
             const recipientBank = document.getElementById('transfer-bank-name').value.trim();
             const accountNumber = document.getElementById('transfer-account-number').value.trim();
+            const routing = document.getElementById('transfer-routing-number') ? document.getElementById('transfer-routing-number').value.trim() : '';
             const amountInput = document.getElementById('transfer-amount').value;
             const amount = parseFloat(amountInput);
             
@@ -531,8 +551,12 @@
                 showMessage("Authentication required.", 'error');
                 return;
             }
-            if (!recipientBank || accountNumber.length < 8) {
+            if (!recipientBank || accountNumber.length < 6) {
                 showMessage("Please enter valid recipient bank and account details.", 'error');
+                return;
+            }
+            if (!validateRouting(routing)) {
+                showMessage("Please enter a valid routing/sort/IBAN/SWIFT.", 'error');
                 return;
             }
             if (amount <= 0 || isNaN(amount)) {
@@ -545,8 +569,10 @@
             }
             
             // Step 1: Store transfer details and require OTP
-            const source = `Bank Transfer to ${recipientBank} - Acct: ${accountNumber.substring(accountNumber.length - 4)}`;
-            pendingTransfer = { amount, source };
+            const acctMasked = accountNumber.length >= 4 ? maskLast4(accountNumber) : accountNumber;
+            const routingMasked = routing ? (' RT: ' + maskLast4(routing)) : '';
+            const source = `Bank Transfer to ${recipientBank} - ${acctMasked}${routingMasked}`;
+            pendingTransfer = { amount, source, meta: { bankName: recipientBank, accountNumber: accountNumber, routing: routing } };
 
             // Show OTP modal for confirmation
             window.showOtpModal();
@@ -754,6 +780,12 @@
                 <div>
                     <label for="transfer-account-number" class="block text-sm font-medium text-gray-700 mb-1">Account Number (External)</label>
                     <input type="text" id="transfer-account-number" placeholder="1234567890" required class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div>
+                    <label for="transfer-routing-number" class="block text-sm font-medium text-gray-700 mb-1">Routing / Sort / IBAN / SWIFT (optional)</label>
+                    <input type="text" id="transfer-routing-number" placeholder="e.g., 021000021 or GB28..." class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <p class="text-xs text-gray-400 mt-1">Routing number for US transfers, sort code for UK, or IBAN/SWIFT for international.</p>
                 </div>
                 
                 <div>
