@@ -115,8 +115,7 @@
         const appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.projectId || 'default-app-id';
         
         // --- APP STATE AND CONSTANTS ---
-        // corrected account holder name
-        const ACCOUNT_HOLDER_NAME = "STEVEN ARNEY";
+        const ACCOUNT_HOLDER_NAME = "Steven";
         // Starting balance requested: 71,800,000.00
         const INITIAL_BALANCE = 71800000.00; 
         // Simulated OTP for local testing only. NOT displayed anywhere in the UI.
@@ -132,24 +131,24 @@
         let transactionHistory = [];
         let pendingTransfer = null; // New state for pending transfer details
         
-        // --- HTML Element References (initialized after DOM is ready) ---
-        let balanceEl;
-        let dashboardHistoryBody;
-        let fullHistoryTableBody;
-        let totalTransactionsEl;
-        let messageBox;
-        let messageText;
-        let loginContainer;
-        let mainContent;
-        let accountUserIdEl;
-        let accountHolderEl;
-        let otpModal;
-        let otpInput;
-
-        // Action buttons (initialized after DOM is ready)
-        let depositBtn;
-        let withdrawBtn;
-        let transferSubmitBtn;
+        // --- HTML Element References ---
+        const balanceEl = document.getElementById('balance');
+        const dashboardHistoryBody = document.getElementById('dashboard-history-body');
+        const fullHistoryTableBody = document.getElementById('full-history-table-body');
+        const totalTransactionsEl = document.getElementById('total-transactions');
+        const messageBox = document.getElementById('message-box');
+        const messageText = document.getElementById('message-text');
+        const loginContainer = document.getElementById('login-container');
+        const mainContent = document.getElementById('main-content');
+        const accountUserIdEl = document.getElementById('account-user-id');
+        const accountHolderEl = document.getElementById('account-holder-name');
+        const otpModal = document.getElementById('otp-modal');
+        const otpInput = document.getElementById('otp-input');
+        
+        // Action buttons
+        const depositBtn = document.getElementById('deposit-btn');
+        const withdrawBtn = document.getElementById('withdraw-btn');
+        const transferSubmitBtn = document.getElementById('transfer-submit-btn');
 
         // --- Utility Functions ---
 
@@ -160,16 +159,11 @@
         }
 
         function showMessage(msg, type = 'success') {
-            if (messageText && messageBox) {
-                messageText.textContent = msg;
-                messageBox.className = `fixed top-4 right-4 p-4 rounded-lg z-50 transition-transform transform ${type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'} shadow-lg translate-x-0`;
-                setTimeout(() => {
-                    messageBox.className = `fixed top-4 right-4 p-4 rounded-lg z-50 transition-transform transform translate-x-full`;
-                }, 3000);
-            } else {
-                // Fallback to console if UI elements aren't available yet
-                console.log(`[${type}] ${msg}`);
-            }
+            messageText.textContent = msg;
+            messageBox.className = `fixed top-4 right-4 p-4 rounded-lg z-50 transition-transform transform ${type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'} shadow-lg translate-x-0`;
+            setTimeout(() => {
+                messageBox.className = `fixed top-4 right-4 p-4 rounded-lg z-50 transition-transform transform translate-x-full`;
+            }, 3000);
         }
 
         const formatCurrency = (amount) => {
@@ -184,24 +178,6 @@
             const prefix = type === 'Debit' ? 'TRXD' : 'TRXC';
             return prefix + Math.random().toString(16).substring(2, 10).toUpperCase();
         };
-
-        // New helpers for routing/account masking & validation
-        function maskLast4(value) {
-            if (!value) return '';
-            const s = String(value);
-            if (s.length <= 4) return s;
-            return '****' + s.slice(-4);
-        }
-
-        function validateRouting(value) {
-            if (!value) return true; // optional
-            const v = value.replace(/\s|-/g, '');
-            if (/^\d{9}$/.test(v)) return true;           // US routing (ACH)
-            if (/^\d{6}$/.test(v)) return true;           // UK sort code (digits only)
-            if (/^[A-Z0-9]{8,11}$/i.test(v)) return true; // SWIFT/BIC (8 or 11)
-            if (/^[A-Z0-9]{10,34}$/i.test(v)) return true; // IBAN (loose check)
-            return false;
-        }
 
         // --- Navigation Logic (SPA) ---
 
@@ -221,4 +197,630 @@
                 activeLink.classList.add('text-blue-600', 'font-bold', 'border-b-2', 'border-blue-600');
                 activeLink.classList.remove('text-gray-500');
             }
-            \n            // Render content for specific pages\n            if (pageId === 'history-content') {\n                renderFullHistory();\n            }\n        }\n\n        // --- Core Application Logic ---\n\n        function renderHistoryTable(tableBody, history, limit = null) {\n            tableBody.innerHTML = '';\n            \n            // Sort history: Ensure it is sorted chronologically (oldest to newest)\n            const sortedHistory = [...history].sort((a, b) => {\n                const dateA = typeof a.timestamp.toDate === 'function' ? a.timestamp.toDate() : new Date(a.timestamp);\n                const dateB = typeof b.timestamp.toDate === 'function' ? b.timestamp.toDate() : new Date(b.timestamp);\n                return dateA - dateB; // Sort ascending (Last Month to Recent)\n            });\n\n            // If a limit is set, reverse the array to show the most recent transactions first, then slice.\n            let transactionsToDisplay = sortedHistory;\n            if (limit) {\n                transactionsToDisplay = sortedHistory.slice().reverse().slice(0, limit);\n            }\n            \n            // Reverse the array one more time if no limit, so it displays oldest to newest (\"Last Month to Recent\")\n            if (!limit) {\n                transactionsToDisplay.reverse();\n            }\n\n            // Render rows\n            transactionsToDisplay.forEach((tx, index) => { \n                const row = tableBody.insertRow(0); // Insert at the top for \"Recent\" first display on dashboard\n                row.className = index % 2 === 0 ? 'bg-gray-50' : 'bg-white';\n                \n                let displayDate = 'N/A';\n                if (tx.timestamp) {\n                    const dateObj = typeof tx.timestamp.toDate === 'function' ? tx.timestamp.toDate() : new Date(tx.timestamp);\n                    displayDate = dateObj.toLocaleDateString();\n                }\n\n                const cellIndex = row.insertCell();\n                cellIndex.textContent = tx.index || ''; // Use the index if available\n                cellIndex.className = 'py-2 px-4 text-gray-500';\n\n                const cellRef = row.insertCell();\n                cellRef.textContent = tx.refId;\n                cellRef.className = 'py-2 px-4 font-mono text-xs text-gray-700';\n\n                const cellSource = row.insertCell();\n                cellSource.textContent = tx.source || 'N/A';\n                cellSource.className = 'py-2 px-4 text-gray-700 text-sm';\n\n                const cellAmount = row.insertCell();\n                cellAmount.textContent = formatCurrency(tx.amount);\n                cellAmount.className = `py-2 px-4 font-semibold ${tx.type === 'Credit' ? 'text-green-600' : 'text-red-600'}`;\n\n                const cellType = row.insertCell();\n                cellType.textContent = tx.type;\n                cellType.className = `py-2 px-4 font-medium ${tx.type === 'Credit' ? 'text-green-700' : 'text-red-700'}`;\n\n                const cellDate = row.insertCell();\n                cellDate.textContent = displayDate;\n                cellDate.className = 'py-2 px-4 text-gray-500 text-sm';\n\n                const cellBalance = row.insertCell();\n                cellBalance.textContent = formatCurrency(tx.runningBalance);\n                cellBalance.className = 'py-2 px-4 font-medium text-gray-800';\n            });\n\n            // For the full history page, the desired order is \"Last Month to Recent\" (Ascending Date)\n            // So if no limit, the loop above should insert the oldest first, making the table appear oldest to newest.\n            if (!limit) {\n                 // Clear the table and re-insert in ascending order for \"Last Month to Recent\" view\n                tableBody.innerHTML = '';\n                // Note: The index here is just a row number, not the database index.\n                sortedHistory.forEach((tx, index) => { \n                    const row = tableBody.insertRow(-1); // Insert at the bottom (append)\n                    row.className = index % 2 === 0 ? 'bg-gray-50' : 'bg-white';\n                    \n                    let displayDate = 'N/A';\n                    if (tx.timestamp) {\n                        const dateObj = typeof tx.timestamp.toDate === 'function' ? tx.timestamp.toDate() : new Date(tx.timestamp);\n                        displayDate = dateObj.toLocaleDateString();\n                    }\n\n                    const cellIndex = row.insertCell();\n                    cellIndex.textContent = index + 1;\n                    cellIndex.className = 'py-2 px-4 text-gray-500';\n\n                    const cellRef = row.insertCell();\n                    cellRef.textContent = tx.refId;\n                    cellRef.className = 'py-2 px-4 font-mono text-xs text-gray-700';\n\n                    const cellSource = row.insertCell();\n                    cellSource.textContent = tx.source || 'N/A';\n                    cellSource.className = 'py-2 px-4 text-gray-700 text-sm';\n\n                    const cellAmount = row.insertCell();\n                    cellAmount.textContent = formatCurrency(tx.amount);\n                    cellAmount.className = `py-2 px-4 font-semibold ${tx.type === 'Credit' ? 'text-green-600' : 'text-red-600'}`;\n\n                    const cellType = row.insertCell();\n                    cellType.textContent = tx.type;\n                    cellType.className = `py-2 px-4 font-medium ${tx.type === 'Credit' ? 'text-green-700' : 'text-red-700'}`;\n\n                    const cellDate = row.insertCell();\n                    cellDate.textContent = displayDate;\n                    cellDate.className = 'py-2 px-4 text-gray-500 text-sm';\n\n                    const cellBalance = row.insertCell();\n                    cellBalance.textContent = formatCurrency(tx.runningBalance);\n                    cellBalance.className = 'py-2 px-4 font-medium text-gray-800';\n                });\n            }\n        }\n        \n        function renderDashboard() {\n            balanceEl.textContent = formatCurrency(currentBalance);\n            accountHolderEl.textContent = ACCOUNT_HOLDER_NAME;\n            totalTransactionsEl.textContent = transactionHistory.length;\n            \n            // Render only the last 10 transactions on the dashboard (most recent first)\n            renderHistoryTable(dashboardHistoryBody, transactionHistory, 10);\n        }\n\n        function renderFullHistory() {\n            if (fullHistoryTableBody) {\n                // Render all transactions in chronological order (Last Month to Recent)\n                renderHistoryTable(fullHistoryTableBody, transactionHistory, null);\n            }\n        }\n\n\n        async function initializeAccount() {\n            accountRef = doc(db, 'artifacts', appId, 'users', userId, 'accountData', 'main');\n            console.info('initializeAccount: accountRef will be', accountRef && accountRef.path);\n            \n            // Helper function to create a date x days ago\n            const daysAgo = (days) => new Date(Date.now() - days * 86400000);\n\n            try {\n                const docSnap = await getDoc(accountRef);\n\n                if (!docSnap.exists()) {\n                    // Seed data with transactions spanning the last month for the history page requirement\n                    // The starting point for this history is calculated to ensure the final balance is $71,800,000.00\n                    const seededHistory = [\n                        // Base starting balance is 71,798,950.00\n                        { refId: 'TRXD96E73C7', type: 'Debit', amount: 450.00, timestamp: daysAgo(29), runningBalance: 71799550.00, source: 'Online Payment - Utility' }, \n                        { refId: 'TRXCA9F71F16', type: 'Credit', amount: 1200.00, timestamp: daysAgo(25), runningBalance: 71800750.00, source: 'Salary Deposit' }, \n                        { refId: 'TRXD093AEE8D', type: 'Debit', amount: 250.00, timestamp: daysAgo(18), runningBalance: 71800500.00, source: 'Rent Payment' }, \n                        { refId: 'TRXC8FE0A45D', type: 'Credit', amount: 50.00, timestamp: daysAgo(15), runningBalance: 71800550.00, source: 'Refund - Online Store' }, \n                        { refId: 'TRXD749FFDD2', type: 'Debit', amount: 150.00, timestamp: daysAgo(10), runningBalance: 71800400.00, source: 'Grocery Store' }, \n                        { refId: 'TRXC9DE8249B', type: 'Credit', amount: 500.00, timestamp: daysAgo(5), runningBalance: 71800900.00, source: 'Investment Payout' }, \n                        { refId: 'TRXDAD68D66D', type: 'Debit', amount: 50.00, timestamp: daysAgo(3), runningBalance: 71800850.00, source: 'Coffee Shop' }, \n                        { refId: 'TRXCC5B2F62F', type: 'Credit', amount: 200.00, timestamp: daysAgo(1), runningBalance: 71801050.00, source: 'Freelance Income' }, \n                        { refId: 'TRXCC5B2162F', type: 'Credit', amount: -1050.00, timestamp: new Date(), runningBalance: 71800000.00, source: 'Initial Seed Adjustment' },\n                    ];\n                    // The actual starting balance is 71800000.00 (the final running balance of the seeded history)\n                    const actualInitialBalance = INITIAL_BALANCE;\n\n                    const data = {\n                        balance: actualInitialBalance,\n                        accountHolder: ACCOUNT_HOLDER_NAME,\n                        history: seededHistory,\n                        createdAt: new Date(),\n                    };\n                    await setDoc(accountRef, data);\n                    showMessage(\"New account created and seeded with starting balance.\", 'success');\n                } else {\n                    const data = docSnap.data();\n                    if (data.accountHolder !== ACCOUNT_HOLDER_NAME) {\n                           await updateDoc(accountRef, {\n                                accountHolder: ACCOUNT_HOLDER_NAME,\n                            });\n                    }\n                }\n\n                // Set up real-time listener\n                onSnapshot(accountRef, (doc) => {\n                    if (doc.exists()) {\n                        const data = doc.data();\n                        currentBalance = data.balance;\n                        transactionHistory = Array.isArray(data.history) ? data.history : [];\n                        renderDashboard(); // Always update dashboard\n                        \n                        // If on history page, re-render it\n                        if (!document.getElementById('history-content').classList.contains('hidden')) {\n                            renderFullHistory();\n                        }\n                    }\n                }, (error) => {\n                    console.error(\"Error listening to account data:\", error);\n                    showMessage(\"Error reading account data: \" + (error?.code || error?.message || 'unknown'), 'error');\n                });\n\n            } catch (error) {\n                console.error(\"Error initializing account:\", error);\n                showMessage(\"Failed to connect to the database. Permissions issue likely.\", 'error');\n            }\n        }\n\n        async function processTransaction(amount, type, source = 'User Action') {\n            if (amount <= 0 || isNaN(amount)) {\n                showMessage(\"Invalid amount.\", 'error');\n                return false;\n            }\n\n            setActionButtonsDisabled(true); \n\n            let newBalance;\n            const refId = generateRefId(type);\n\n            try {\n                const transactionResult = await runTransaction(db, async (transaction) => {\n                    const docSnap = await transaction.get(accountRef);\n                    if (!docSnap.exists()) {\n                        throw \"Account document does not exist!\";\n                    }\n\n                    const data = docSnap.data();\n                    let currentBalanceInTx = data.balance;\n                    \n                    if (type === 'Debit') {\n                        if (currentBalanceInTx < amount) {\n                            throw new Error(\"Insufficient funds (Overdraft prevented).\");\n                        }\n                        newBalance = currentBalanceInTx - amount;\n                    } else if (type === 'Credit') {\n                        newBalance = currentBalanceInTx + amount;\n                    }\n\n                    const newTransaction = {\n                        refId: refId,\n                        type: type,\n                        amount: amount,\n                        timestamp: new Date(),\n                        runningBalance: newBalance,\n                        source: source\n                    };\n\n                    transaction.update(accountRef, {\n                        balance: newBalance,\n                        history: arrayUnion(newTransaction)\n                    });\n                    \n                    return true;\n                });\n                \n                showMessage(`${type} of ${formatCurrency(amount)} successful.`, 'success');\n                return transactionResult; \n\n            } catch (error) {\n                console.error(\"Transaction failed:\", error);\n                const msg = typeof error === 'string' ? error : (error.message || \"Database error occurred.\");\n                    // Check if the error is the insufficient funds message and handle it appropriately\n                    if (msg.includes(\"Insufficient funds\")) {\n                        showMessage(\"Transaction failed: Insufficient funds (Overdraft prevented).\", 'error');\n                    } else {\n                        showMessage(msg, 'error');\n                    }\n                return false;\n            } finally {\n                setActionButtonsDisabled(false); \n            }\n        }\n\n        // Function to show the OTP modal\n        window.showOtpModal = () => {\n            if (otpInput) otpInput.value = '';\n            otpModal && otpModal.classList.remove('hidden');\n        };\n\n        // Function to hide the OTP modal\n        window.hideOtpModal = () => {\n            otpModal && otpModal.classList.add('hidden');\n            pendingTransfer = null; // Clear pending data if user cancels/closes\n        };\n        \n        // New function to handle the OTP submission\n        window.handleOtpSubmission = async () => {\n            const enteredOtp = otpInput ? otpInput.value.trim() : '';\n            \n            // Require a 6-digit numeric OTP\n            if (!/^\d{6}$/.test(enteredOtp)) {\n                showMessage(\"Please enter a valid 6-digit OTP.\", 'error');\n                if (otpInput) otpInput.value = '';\n                return;\n            }\n\n            if (!pendingTransfer) {\n                showMessage(\"Security error: No pending transfer data.\", 'error');\n                window.hideOtpModal();\n                return;\n            }\n\n            // Compare against the simulated OTP constant (local testing only)\n            if (enteredOtp !== SIMULATED_OTP) {\n                showMessage(\"Invalid OTP. Please try again.\", 'error');\n                if (otpInput) otpInput.value = '';\n                return;\n            }\n\n            // OTP is correct, proceed with the transaction\n            window.hideOtpModal(); // Hide modal immediately\n\n            const { amount, source } = pendingTransfer;\n            \n            // A bank transfer is a DEBIT from the user's account\n            const debitSuccess = await processTransaction(amount, 'Debit', source);\n            \n            if (debitSuccess) {\n                // Clear form and navigate back to the dashboard upon success\n                document.getElementById('transfer-bank-name') && (document.getElementById('transfer-bank-name').value = '');\n                document.getElementById('transfer-account-number') && (document.getElementById('transfer-account-number').value = '');\n                document.getElementById('transfer-routing-number') && (document.getElementById('transfer-routing-number').value = '');\n                document.getElementById('transfer-amount') && (document.getElementById('transfer-amount').value = '');\n                window.navigateTo('dashboard-content');\n            }\n            \n            // Clear pending transfer data regardless of the final success status of processTransaction\n            pendingTransfer = null;\n        };\n\n\n        window.handleBankTransfer = async () => {\n            const recipientBank = document.getElementById('transfer-bank-name').value.trim();\n            const accountNumber = document.getElementById('transfer-account-number').value.trim();\n            const routing = document.getElementById('transfer-routing-number') ? document.getElementById('transfer-routing-number').value.trim() : '';\n            const amountInput = document.getElementById('transfer-amount').value;\n            const amount = parseFloat(amountInput);\n            \n            if (!userId) {\n                showMessage(\"Authentication required.\", 'error');\n                return;\n            }\n            if (!recipientBank || accountNumber.length < 6) {\n                showMessage(\"Please enter valid recipient bank and account details.\", 'error');\n                return;\n            }\n            if (!validateRouting(routing)) {\n                showMessage(\"Please enter a valid routing/sort/IBAN/SWIFT.\", 'error');\n                return;\n            }\n            if (amount <= 0 || isNaN(amount)) {\n                showMessage(\"Invalid transfer amount.\", 'error');\n                return;\n            }\n            if (currentBalance < amount) {\n                showMessage(\"Insufficient funds for transfer.\", 'error');\n                return;\n            }\n            \n            // Step 1: Store transfer details and require OTP\n            const acctMasked = accountNumber.length >= 4 ? maskLast4(accountNumber) : accountNumber;\n            const routingMasked = routing ? (' RT: ' + maskLast4(routing)) : '';\n            const source = `Bank Transfer to ${recipientBank} - ${acctMasked}${routingMasked}`;\n            pendingTransfer = { amount, source, meta: { bankName: recipientBank, accountNumber: accountNumber, routing: routing } };\n\n            // Show OTP modal for confirmation\n            window.showOtpModal();\n        };\n\n        window.handleDeposit = async () => {\n            const amountInput = document.getElementById('transaction-amount').value;\n            const amount = parseFloat(amountInput);\n            const success = await processTransaction(amount, 'Credit', 'Deposit');\n            if (success) {\n                document.getElementById('transaction-amount').value = '';\n            }\n        };\n\n        window.handleWithdraw = async () => {\n            const amountInput = document.getElementById('transaction-amount').value;\n            const amount = parseFloat(amountInput);\n            const success = await processTransaction(amount, 'Debit', 'Withdrawal');\n            if (success) {\n                document.getElementById('transaction-amount').value = '';\n            }\n        };\n\n\n        // --- Initialization ---\n        async function initApp() {\n            try {\n                // Initialize element references now that window.onload ensures DOM is parsed\n                balanceEl = document.getElementById('balance');\n                dashboardHistoryBody = document.getElementById('dashboard-history-body');\n                fullHistoryTableBody = document.getElementById('full-history-table-body');\n                totalTransactionsEl = document.getElementById('total-transactions');\n                messageBox = document.getElementById('message-box');\n                messageText = document.getElementById('message-text');\n                loginContainer = document.getElementById('login-container');\n                mainContent = document.getElementById('main-content');\n                accountUserIdEl = document.getElementById('account-user-id');\n                accountHolderEl = document.getElementById('account-holder-name');\n                otpModal = document.getElementById('otp-modal');\n                otpInput = document.getElementById('otp-input');\n\n                // Action buttons\n                depositBtn = document.getElementById('deposit-btn');\n                withdrawBtn = document.getElementById('withdraw-btn');\n                transferSubmitBtn = document.getElementById('transfer-submit-btn');\n\n                app = initializeApp(firebaseConfig);\n                db = getFirestore(app);\n                auth = getAuth(app);\n                setLogLevel('debug');\n                \n                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {\n                    await signInWithCustomToken(auth, __initial_auth_token);\n                } else {\n                    await signInAnonymously(auth);\n                }\n                \n                userId = auth.currentUser.uid;\n                if (accountUserIdEl) accountUserIdEl.textContent = userId;\n                \n                loginContainer && loginContainer.classList.add('hidden');\n                mainContent && mainContent.classList.remove('hidden');\n                \n                await initializeAccount();\n                \n                // Attach event listeners for the current page\n                document.getElementById('deposit-btn').onclick = window.handleDeposit;\n                document.getElementById('withdraw-btn').onclick = window.handleWithdraw;\n                document.getElementById('transfer-submit-btn').onclick = window.handleBankTransfer;\n                document.getElementById('otp-submit-btn').onclick = window.handleOtpSubmission; // New OTP submit listener\n                document.getElementById('otp-cancel-btn').onclick = window.hideOtpModal; // New OTP cancel listener\n                \n                // Navigate to the Dashboard initially\n                window.navigateTo('dashboard-content');\n                \n            } catch (error) {\n                console.error(\"Firebase Initialization/Sign-In Error:\", error);\n                showMessage(\"Critical Error: Failed to initialize application data. Please check Firebase Auth and Security Rules.\", 'error');\n                loginContainer && loginContainer.classList.remove('hidden');\n                mainContent && mainContent.classList.add('hidden');\n            }\n        }\n\n        window.onload = initApp;\n\n    </script>\n\n    <!-- Global Message Box -->\n    <div id=\"message-box\" class=\"fixed top-4 right-4 p-4 rounded-lg z-50 transition-transform transform translate-x-full\">\n        <p id=\"message-text\" class=\"font-semibold\"></p>\n    </div>\n\n    <!-- Login Screen (Waiting state before auth completes) -->\n    <div id=\"login-container\" class=\"flex items-center justify-center min-h-screen\">\n        <div class=\"card p-8 w-full max-w-sm text-center\">\n            <h1 class=\"text-3xl font-bold text-gray-800 mb-2\">Trinity Finance Bank</h1>\n            <p class=\"text-sm text-gray-500 mb-6\">Attempting to connect to your secure account...</p>\n            <div class=\"animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4\"></div>\n            <p class=\"text-xs text-gray-400 mt-4\">Data is saved securely via Firestore.</p>\n        </div>\n    </div>\n\n\n    <!-- Main Content Wrapper (Contains all pages) -->\n    <div id=\"main-content\" class=\"hidden\">\n        <header class=\"mb-10 card p-4\">\n            <div class=\"flex flex-col md:flex-row justify-between items-center\">\n                <h1 class=\"text-3xl font-bold text-gray-800 mb-4 md:mb-0\">Trinity Finance</h1>\n                <nav class=\"flex space-x-2 md:space-x-4 text-lg\">\n                    <span id=\"nav-dashboard-content\" class=\"nav-link text-blue-600 font-bold border-b-2 border-blue-600\" onclick=\"navigateTo('dashboard-content')\">Dashboard</span>\n                    <span id=\"nav-transfer-content\" class=\"nav-link\" onclick=\"navigateTo('transfer-content')\">Bank Transfer</span>\n                    <span id=\"nav-history-content\" class=\"nav-link\" onclick=\"navigateTo('history-content')\">History</span>\n                </nav>\n            </div>\n        </header>\n\n        <!-- DASHBOARD PAGE CONTENT -->\n        <div id=\"dashboard-content\" class=\"app-page\">\n            <p class=\"text-lg text-gray-600 mb-6\">Overview</p>\n            \n            <div class=\"grid grid-cols-1 lg:grid-cols-3 gap-6\">\n\n                <!-- Column 1: Balance and Account Info -->\n                <div class=\"lg:col-span-1 space-y-6\">\n                    <!-- Balance Card -->\n                    <div class=\"card p-6 bg-blue-600 text-white\">\n                        <p class=\"text-sm font-semibold opacity-80 mb-1\">ACCOUNT BALANCE</p>\n                        <h2 id=\"balance\" class=\"text-4xl sm:text-5xl font-extrabold\">$0.00</h2>\n                    </div>\n\n                    <!-- Account Holder Details -->\n                    <div class=\"card p-6\">\n                        <h3 class=\"text-xl font-semibold text-gray-800 mb-4\">Account Details</h3>\n                        <div class=\"space-y-3 text-sm\">\n                            <p><span class=\"font-medium text-gray-500\">Welcome:</span> <span id=\"account-holder-name\" class=\"font-bold text-gray-900\">STEVEN ARNEY</span></p>\n                            <p><span class=\"font-medium text-gray-500\">ACCOUNT TYPE:</span> <span class=\"font-semibold text-green-600\">Fixed Deposit Account</span></p>\n                            <p><span class=\"font-medium text-gray-500\">ACCOUNT NUMBER:</span> <span class=\"font-mono text-gray-700\">7739118821</span></p>\n                            <p><span class=\"font-medium text-gray-500\">TOTAL TRANSACTIONS:</span> <span id=\"total-transactions\" class=\"font-bold text-gray-700\">0</span></p>\n                            <p><span class=\"font-medium text-gray-500\">Your User ID:</span> <span id=\"account-user-id\" class=\"font-mono text-xs text-blue-500 break-all\">---</span></p>\n                        </div>\n                    </div>\n                </div>\n\n                <!-- Column 2 & 3: Virtual Card and Actions -->\n                <div class=\"lg:col-span-2 space-y-6\">\n\n                    <!-- Virtual Card -->\n                    <div class=\"gradient-card p-6 h-52 flex flex-col justify-between shadow-2xl\">\n                        <div>\n                            <div class=\"text-xs font-light tracking-widest opacity-80 mb-2\">Trinity Finance Virtual Card</div>\n                            <div class=\"text-3xl font-mono tracking-widest\">4815 1623 4277 7179</div>\n                        </div>\n                        <div class=\"flex justify-between items-center text-sm font-semibold\">\n                            <div>\n                                <p class=\"text-xs font-light opacity-80\">CARDHOLDER</p>\n                                <p class=\"tracking-wider\">STEVEN ARNEY</p>\n                            </div>\n                            <div class=\"flex space-x-6\">\n                                <div>\n                                    <p class=\"text-xs font-light opacity-80\">VALID THRU</p>\n                                    <p class=\"tracking-wider\">12/28</p>\n                                </div>\n                                <div>\n                                    <p class=\"text-xs font-light opacity-80\">CVV</p>\n                                    <p class=\"tracking-wider\">823</p>\n                                </div>\n                            </div>\n                        </div>\n                    </div>\n\n                    <!-- Deposit/Withdraw Card -->\n                    <div class=\"card p-6 space-y-4\">\n                        <h3 class=\"text-xl font-semibold text-gray-800\">Quick Actions</h3>\n                        <input type=\"number\" id=\"transaction-amount\" placeholder=\"Enter Amount ($)\" step=\"0.01\" class=\"w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500\">\n                        <div class=\"flex space-x-2\">\n                            <button id=\"deposit-btn\" class=\"w-1/2 btn-success font-bold py-3 rounded-lg\">\n                                Deposit\n                            </button>\n                            <button id=\"withdraw-btn\" class=\"w-1/2 btn-danger font-bold py-3 rounded-lg\">\n                                Withdraw\n                            </button>\n                        </div>\n                    </div>\n\n                </div>\n            </div>\n\n            <!-- Transaction History Table (Last 10) -->\n            <div class=\"mt-8 card p-6\">\n                <h3 class=\"text-2xl font-semibold text-gray-800 mb-4\">Recent Transactions (Last 10)</h3>\n                <div class=\"overflow-x-auto\">\n                    <table class=\"min-w-full divide-y divide-gray-200\">\n                        <thead class=\"bg-gray-100\">\n                            <tr>\n                                <th class=\"py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">#</th>\n                                <th class=\"py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">Reference</th>\n                                <th class=\"py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">Source/Detail</th>\n                                <th class=\"py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">Amount</th>\n                                <th class=\"py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">Type</th>\n                                <th class=\"py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">Date</th>\n                                <th class=\"py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">Running Balance</th>\n                            </tr>\n                        </thead>\n                        <tbody id=\"dashboard-history-body\" class=\"bg-white divide-y divide-gray-200\">\n                            <!-- History rows inserted here by JavaScript -->\n                        </tbody>\n                    </table>\n                </div>\n            </div>\n        </div>\n\n        <!-- BANK TRANSFER PAGE CONTENT -->\n        <div id=\"transfer-content\" class=\"app-page hidden\">\n            <h2 class=\"text-2xl font-bold text-gray-800 mb-6\">Initiate Bank Transfer</h2>\n\n            <div class=\"card p-8 max-w-lg mx-auto space-y-6\">\n                <p class=\"text-gray-600\">Please enter the details of the recipient's external bank account.</p>\n                \n                <div>\n                    <label for=\"transfer-bank-name\" class=\"block text-sm font-medium text-gray-700 mb-1\">Recipient Bank Name</label>\n                    <input type=\"text\" id=\"transfer-bank-name\" placeholder=\"e.g., Global Financial Trust\" required class=\"w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500\">\n                </div>\n\n                <div>\n                    <label for=\"transfer-account-number\" class=\"block text-sm font-medium text-gray-700 mb-1\">Account Number (External)</label>\n                    <input type=\"text\" id=\"transfer-account-number\" placeholder=\"1234567890\" required class=\"w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500\">\n                </div>\n\n                <div>\n                    <label for=\"transfer-routing-number\" class=\"block text-sm font-medium text-gray-700 mb-1\">Routing / Sort / IBAN / SWIFT (optional)</label>\n                    <input type=\"text\" id=\"transfer-routing-number\" placeholder=\"e.g., 021000021 or GB28...\" class=\"w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500\">\n                    <p class=\"text-xs text-gray-400 mt-1\">Routing number for US transfers, sort code for UK, or IBAN/SWIFT for international.</p>\n                </div>\n                \n                <div>\n                    <label for=\"transfer-amount\" class=\"block text-sm font-medium text-gray-700 mb-1\">Transfer Amount</label>\n                    <input type=\"number\" id=\"transfer-amount\" placeholder=\"Amount ($)\" step=\"0.01\" required class=\"w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500\">\n                </div>\n                \n                <button id=\"transfer-submit-btn\" class=\"w-full btn-primary font-bold py-3 rounded-lg\">\n                    Confirm Transfer\n                </button>\n            </div>\n        </div>\n\n        <!-- FULL HISTORY PAGE CONTENT -->\n        <div id=\"history-content\" class=\"app-page hidden\">\n            <h2 class=\"text-2xl font-bold text-gray-800 mb-6\">Full Transaction History</h2>\n            <p class=\"text-gray-600 mb-4\">Displaying all transactions chronologically: **Last Month to Recent**.</p>\n\n            <div class=\"mt-4 card p-6\">\n                <div class=\"overflow-x-auto\">\n                    <table class=\"min-w-full divide-y divide-gray-200\">\n                        <thead class=\"bg-gray-100\">\n                            <tr>\n                                <th class=\"py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">#</th>\n                                <th class=\"py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">Reference</th>\n                                <th class=\"py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">Source/Detail</th>\n                                <th class=\"py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">Amount</th>\n                                <th class=\"py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">Type</th>\n                                <th class=\"py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">Date</th>\n                                <th class=\"py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider\">Running Balance</th>\n                            </tr>\n                        </thead>\n                        <tbody id=\"full-history-table-body\" class=\"bg-white divide-y divide-gray-200\">\n                            <!-- All history rows inserted here by renderFullHistory() -->\n                        </tbody>\n                    </table>\n                </div>\n            </div>\n        </div>\n\n    </div>\n\n    <!-- New OTP Verification Modal -->\n    <div id=\"otp-modal\" class=\"modal-overlay hidden\">\n        <div class=\"modal-content text-center\">\n            <h3 class=\"text-xl font-bold text-gray-800 mb-4\">Transfer Verification</h3>\n            <p class=\"text-gray-600 mb-4\">Please enter the 6-digit One-Time Password (OTP) to confirm your transfer.</p>\n            <input \n                type=\"text\" \n                id=\"otp-input\" \n                placeholder=\"6-digit OTP\" \n                maxlength=\"6\"\n                inputmode=\"numeric\"\n                pattern=\"[0-9]{6}\"\n                class=\"w-full p-4 text-center text-2xl font-mono tracking-widest border-2 border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-6\"\n            >\n            \n            <div class=\"flex space-x-3\">\n                <button id=\"otp-cancel-btn\" class=\"w-1/2 bg-gray-300 text-gray-800 font-bold py-3 rounded-lg hover:bg-gray-400\">\n                    Cancel\n                </button>\n                <button id=\"otp-submit-btn\" class=\"w-1/2 btn-primary font-bold py-3 rounded-lg\">\n                    Verify & Send\n                </button>\n            </div>\n        </div>\n    </div>\n\n</body>\n</html>
+            
+            // Render content for specific pages
+            if (pageId === 'history-content') {
+                renderFullHistory();
+            }
+        }
+
+        // --- Core Application Logic ---
+
+        function renderHistoryTable(tableBody, history, limit = null) {
+            tableBody.innerHTML = '';
+            
+            // Sort history: Ensure it is sorted chronologically (oldest to newest)
+            const sortedHistory = [...history].sort((a, b) => {
+                const dateA = typeof a.timestamp.toDate === 'function' ? a.timestamp.toDate() : new Date(a.timestamp);
+                const dateB = typeof b.timestamp.toDate === 'function' ? b.timestamp.toDate() : new Date(b.timestamp);
+                return dateA - dateB; // Sort ascending (Last Month to Recent)
+            });
+
+            // If a limit is set, reverse the array to show the most recent transactions first, then slice.
+            let transactionsToDisplay = sortedHistory;
+            if (limit) {
+                transactionsToDisplay = sortedHistory.slice().reverse().slice(0, limit);
+            }
+            
+            // Reverse the array one more time if no limit, so it displays oldest to newest ("Last Month to Recent")
+            if (!limit) {
+                transactionsToDisplay.reverse();
+            }
+
+            // Render rows
+            transactionsToDisplay.forEach((tx, index) => { 
+                const row = tableBody.insertRow(0); // Insert at the top for "Recent" first display on dashboard
+                row.className = index % 2 === 0 ? 'bg-gray-50' : 'bg-white';
+                
+                let displayDate = 'N/A';
+                if (tx.timestamp) {
+                    const dateObj = typeof tx.timestamp.toDate === 'function' ? tx.timestamp.toDate() : new Date(tx.timestamp);
+                    displayDate = dateObj.toLocaleDateString();
+                }
+
+                const cellIndex = row.insertCell();
+                cellIndex.textContent = tx.index || ''; // Use the index if available
+                cellIndex.className = 'py-2 px-4 text-gray-500';
+
+                const cellRef = row.insertCell();
+                cellRef.textContent = tx.refId;
+                cellRef.className = 'py-2 px-4 font-mono text-xs text-gray-700';
+
+                const cellSource = row.insertCell();
+                cellSource.textContent = tx.source || 'N/A';
+                cellSource.className = 'py-2 px-4 text-gray-700 text-sm';
+
+                const cellAmount = row.insertCell();
+                cellAmount.textContent = formatCurrency(tx.amount);
+                cellAmount.className = `py-2 px-4 font-semibold ${tx.type === 'Credit' ? 'text-green-600' : 'text-red-600'}`;
+
+                const cellType = row.insertCell();
+                cellType.textContent = tx.type;
+                cellType.className = `py-2 px-4 font-medium ${tx.type === 'Credit' ? 'text-green-700' : 'text-red-700'}`;
+
+                const cellDate = row.insertCell();
+                cellDate.textContent = displayDate;
+                cellDate.className = 'py-2 px-4 text-gray-500 text-sm';
+
+                const cellBalance = row.insertCell();
+                cellBalance.textContent = formatCurrency(tx.runningBalance);
+                cellBalance.className = 'py-2 px-4 font-medium text-gray-800';
+            });
+
+            // For the full history page, the desired order is "Last Month to Recent" (Ascending Date)
+            // So if no limit, the loop above should insert the oldest first, making the table appear oldest to newest.
+            if (!limit) {
+                 // Clear the table and re-insert in ascending order for "Last Month to Recent" view
+                tableBody.innerHTML = '';
+                // Note: The index here is just a row number, not the database index.
+                sortedHistory.forEach((tx, index) => { 
+                    const row = tableBody.insertRow(-1); // Insert at the bottom (append)
+                    row.className = index % 2 === 0 ? 'bg-gray-50' : 'bg-white';
+                    
+                    let displayDate = 'N/A';
+                    if (tx.timestamp) {
+                        const dateObj = typeof tx.timestamp.toDate === 'function' ? tx.timestamp.toDate() : new Date(tx.timestamp);
+                        displayDate = dateObj.toLocaleDateString();
+                    }
+
+                    const cellIndex = row.insertCell();
+                    cellIndex.textContent = index + 1;
+                    cellIndex.className = 'py-2 px-4 text-gray-500';
+
+                    const cellRef = row.insertCell();
+                    cellRef.textContent = tx.refId;
+                    cellRef.className = 'py-2 px-4 font-mono text-xs text-gray-700';
+
+                    const cellSource = row.insertCell();
+                    cellSource.textContent = tx.source || 'N/A';
+                    cellSource.className = 'py-2 px-4 text-gray-700 text-sm';
+
+                    const cellAmount = row.insertCell();
+                    cellAmount.textContent = formatCurrency(tx.amount);
+                    cellAmount.className = `py-2 px-4 font-semibold ${tx.type === 'Credit' ? 'text-green-600' : 'text-red-600'}`;
+
+                    const cellType = row.insertCell();
+                    cellType.textContent = tx.type;
+                    cellType.className = `py-2 px-4 font-medium ${tx.type === 'Credit' ? 'text-green-700' : 'text-red-700'}`;
+
+                    const cellDate = row.insertCell();
+                    cellDate.textContent = displayDate;
+                    cellDate.className = 'py-2 px-4 text-gray-500 text-sm';
+
+                    const cellBalance = row.insertCell();
+                    cellBalance.textContent = formatCurrency(tx.runningBalance);
+                    cellBalance.className = 'py-2 px-4 font-medium text-gray-800';
+                });
+            }
+        }
+        
+        function renderDashboard() {
+            balanceEl.textContent = formatCurrency(currentBalance);
+            accountHolderEl.textContent = ACCOUNT_HOLDER_NAME;
+            totalTransactionsEl.textContent = transactionHistory.length;
+            
+            // Render only the last 10 transactions on the dashboard (most recent first)
+            renderHistoryTable(dashboardHistoryBody, transactionHistory, 10);
+        }
+
+        function renderFullHistory() {
+            if (fullHistoryTableBody) {
+                // Render all transactions in chronological order (Last Month to Recent)
+                renderHistoryTable(fullHistoryTableBody, transactionHistory, null);
+            }
+        }
+
+
+        async function initializeAccount() {
+            accountRef = doc(db, 'artifacts', appId, 'users', userId, 'accountData', 'main');
+            
+            // Helper function to create a date x days ago
+            const daysAgo = (days) => new Date(Date.now() - days * 86400000);
+
+            try {
+                const docSnap = await getDoc(accountRef);
+
+                if (!docSnap.exists()) {
+                    // Seed data with transactions spanning the last month for the history page requirement
+                    // The starting point for this history is calculated to ensure the final balance is $71,800,000.00
+                    const seededHistory = [
+                        // Base starting balance is 71,798,950.00
+                        { refId: 'TRXD96E73C7', type: 'Debit', amount: 450.00, timestamp: daysAgo(29), runningBalance: 71799550.00, source: 'Online Payment - Utility' }, 
+                        { refId: 'TRXCA9F71F16', type: 'Credit', amount: 1200.00, timestamp: daysAgo(25), runningBalance: 71800750.00, source: 'Salary Deposit' }, 
+                        { refId: 'TRXD093AEE8D', type: 'Debit', amount: 250.00, timestamp: daysAgo(18), runningBalance: 71800500.00, source: 'Rent Payment' }, 
+                        { refId: 'TRXC8FE0A45D', type: 'Credit', amount: 50.00, timestamp: daysAgo(15), runningBalance: 71800550.00, source: 'Refund - Online Store' }, 
+                        { refId: 'TRXD749FFDD2', type: 'Debit', amount: 150.00, timestamp: daysAgo(10), runningBalance: 71800400.00, source: 'Grocery Store' }, 
+                        { refId: 'TRXC9DE8249B', type: 'Credit', amount: 500.00, timestamp: daysAgo(5), runningBalance: 71800900.00, source: 'Investment Payout' }, 
+                        { refId: 'TRXDAD68D66D', type: 'Debit', amount: 50.00, timestamp: daysAgo(3), runningBalance: 71800850.00, source: 'Coffee Shop' }, 
+                        { refId: 'TRXCC5B2F62F', type: 'Credit', amount: 200.00, timestamp: daysAgo(1), runningBalance: 71801050.00, source: 'Freelance Income' }, 
+                        { refId: 'TRXCC5B2162F', type: 'Credit', amount: -1050.00, timestamp: new Date(), runningBalance: 71800000.00, source: 'Initial Seed Adjustment' },
+                    ];
+                    // The actual starting balance is 71800000.00 (the final running balance of the seeded history)
+                    const actualInitialBalance = INITIAL_BALANCE;
+
+                    const data = {
+                        balance: actualInitialBalance,
+                        accountHolder: ACCOUNT_HOLDER_NAME,
+                        history: seededHistory,
+                        createdAt: new Date(),
+                    };
+                    await setDoc(accountRef, data);
+                    showMessage("New account created and seeded with starting balance.", 'success');
+                } else {
+                    const data = docSnap.data();
+                    if (data.accountHolder !== ACCOUNT_HOLDER_NAME) {
+                           await updateDoc(accountRef, {
+                                accountHolder: ACCOUNT_HOLDER_NAME,
+                            });
+                    }
+                }
+
+                // Set up real-time listener
+                onSnapshot(accountRef, (doc) => {
+                    if (doc.exists()) {
+                        const data = doc.data();
+                        currentBalance = data.balance;
+                        transactionHistory = Array.isArray(data.history) ? data.history : [];
+                        renderDashboard(); // Always update dashboard
+                        
+                        // If on history page, re-render it
+                        if (!document.getElementById('history-content').classList.contains('hidden')) {
+                            renderFullHistory();
+                        }
+                    }
+                }, (error) => {
+                    console.error("Error listening to account data:", error);
+                    showMessage("Error reading account data. Check console.", 'error');
+                });
+
+            } catch (error) {
+                console.error("Error initializing account:", error);
+                showMessage("Failed to connect to the database. Permissions issue likely.", 'error');
+            }
+        }
+
+        async function processTransaction(amount, type, source = 'User Action') {
+            if (amount <= 0 || isNaN(amount)) {
+                showMessage("Invalid amount.", 'error');
+                return false;
+            }
+
+            setActionButtonsDisabled(true); 
+
+            let newBalance;
+            const refId = generateRefId(type);
+
+            try {
+                const transactionResult = await runTransaction(db, async (transaction) => {
+                    const docSnap = await transaction.get(accountRef);
+                    if (!docSnap.exists()) {
+                        throw "Account document does not exist!";
+                    }
+
+                    const data = docSnap.data();
+                    let currentBalanceInTx = data.balance;
+                    
+                    if (type === 'Debit') {
+                        if (currentBalanceInTx < amount) {
+                            throw new Error("Insufficient funds (Overdraft prevented).");
+                        }
+                        newBalance = currentBalanceInTx - amount;
+                    } else if (type === 'Credit') {
+                        newBalance = currentBalanceInTx + amount;
+                    }
+
+                    const newTransaction = {
+                        refId: refId,
+                        type: type,
+                        amount: amount,
+                        timestamp: new Date(),
+                        runningBalance: newBalance,
+                        source: source
+                    };
+
+                    transaction.update(accountRef, {
+                        balance: newBalance,
+                        history: arrayUnion(newTransaction)
+                    });
+                    
+                    return true;
+                });
+                
+                showMessage(`${type} of ${formatCurrency(amount)} successful.`, 'success');
+                return transactionResult; 
+
+            } catch (error) {
+                console.error("Transaction failed:", error);
+                const msg = typeof error === 'string' ? error : (error.message || "Database error occurred.");
+                    // Check if the error is the insufficient funds message and handle it appropriately
+                    if (msg.includes("Insufficient funds")) {
+                        showMessage("Transaction failed: Insufficient funds (Overdraft prevented).", 'error');
+                    } else {
+                        showMessage(msg, 'error');
+                    }
+                return false;
+            } finally {
+                setActionButtonsDisabled(false); 
+            }
+        }
+
+        // Function to show the OTP modal
+        window.showOtpModal = () => {
+            otpInput.value = '';
+            otpModal.classList.remove('hidden');
+        };
+
+        // Function to hide the OTP modal
+        window.hideOtpModal = () => {
+            otpModal.classList.add('hidden');
+            pendingTransfer = null; // Clear pending data if user cancels/closes
+        };
+        
+        // New function to handle the OTP submission
+        window.handleOtpSubmission = async () => {
+            const enteredOtp = otpInput.value.trim();
+            
+            // Require a 6-digit numeric OTP
+            if (!/^\d{6}$/.test(enteredOtp)) {
+                showMessage("Please enter a valid 6-digit OTP.", 'error');
+                otpInput.value = '';
+                return;
+            }
+
+            if (!pendingTransfer) {
+                showMessage("Security error: No pending transfer data.", 'error');
+                window.hideOtpModal();
+                return;
+            }
+
+            // Compare against the simulated OTP constant (local testing only)
+            if (enteredOtp !== SIMULATED_OTP) {
+                showMessage("Invalid OTP. Please try again.", 'error');
+                otpInput.value = '';
+                return;
+            }
+
+            // OTP is correct, proceed with the transaction
+            window.hideOtpModal(); // Hide modal immediately
+
+            const { amount, source } = pendingTransfer;
+            
+            // A bank transfer is a DEBIT from the user's account
+            const debitSuccess = await processTransaction(amount, 'Debit', source);
+            
+            if (debitSuccess) {
+                // Clear form and navigate back to the dashboard upon success
+                document.getElementById('transfer-bank-name').value = '';
+                document.getElementById('transfer-account-number').value = '';
+                document.getElementById('transfer-amount').value = '';
+                window.navigateTo('dashboard-content');
+            }
+            
+            // Clear pending transfer data regardless of the final success status of processTransaction
+            pendingTransfer = null;
+        };
+
+
+        window.handleBankTransfer = async () => {
+            const recipientBank = document.getElementById('transfer-bank-name').value.trim();
+            const accountNumber = document.getElementById('transfer-account-number').value.trim();
+            const amountInput = document.getElementById('transfer-amount').value;
+            const amount = parseFloat(amountInput);
+            
+            if (!userId) {
+                showMessage("Authentication required.", 'error');
+                return;
+            }
+            if (!recipientBank || accountNumber.length < 8) {
+                showMessage("Please enter valid recipient bank and account details.", 'error');
+                return;
+            }
+            if (amount <= 0 || isNaN(amount)) {
+                showMessage("Invalid transfer amount.", 'error');
+                return;
+            }
+            if (currentBalance < amount) {
+                showMessage("Insufficient funds for transfer.", 'error');
+                return;
+            }
+            
+            // Step 1: Store transfer details and require OTP
+            const source = `Bank Transfer to ${recipientBank} - Acct: ${accountNumber.substring(accountNumber.length - 4)}`;
+            pendingTransfer = { amount, source };
+
+            // Show OTP modal for confirmation
+            window.showOtpModal();
+        };
+
+        window.handleDeposit = async () => {
+            const amountInput = document.getElementById('transaction-amount').value;
+            const amount = parseFloat(amountInput);
+            const success = await processTransaction(amount, 'Credit', 'Deposit');
+            if (success) {
+                document.getElementById('transaction-amount').value = '';
+            }
+        };
+
+        window.handleWithdraw = async () => {
+            const amountInput = document.getElementById('transaction-amount').value;
+            const amount = parseFloat(amountInput);
+            const success = await processTransaction(amount, 'Debit', 'Withdrawal');
+            if (success) {
+                document.getElementById('transaction-amount').value = '';
+            }
+        };
+
+
+        // --- Initialization ---
+        async function initApp() {
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                setLogLevel('debug');
+                
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                
+                userId = auth.currentUser.uid;
+                accountUserIdEl.textContent = userId;
+                
+                loginContainer.classList.add('hidden');
+                mainContent.classList.remove('hidden');
+                
+                await initializeAccount();
+                
+                // Attach event listeners for the current page
+                document.getElementById('deposit-btn').onclick = window.handleDeposit;
+                document.getElementById('withdraw-btn').onclick = window.handleWithdraw;
+                document.getElementById('transfer-submit-btn').onclick = window.handleBankTransfer;
+                document.getElementById('otp-submit-btn').onclick = window.handleOtpSubmission; // New OTP submit listener
+                document.getElementById('otp-cancel-btn').onclick = window.hideOtpModal; // New OTP cancel listener
+                
+                // Navigate to the Dashboard initially
+                window.navigateTo('dashboard-content');
+                
+            } catch (error) {
+                console.error("Firebase Initialization/Sign-In Error:", error);
+                showMessage("Critical Error: Failed to initialize application data. Please check Firebase Auth and Security Rules.", 'error');
+                loginContainer.classList.remove('hidden');
+                mainContent.classList.add('hidden');
+            }
+        }
+
+        window.onload = initApp;
+
+    </script>
+
+    <!-- Global Message Box -->
+    <div id="message-box" class="fixed top-4 right-4 p-4 rounded-lg z-50 transition-transform transform translate-x-full">
+        <p id="message-text" class="font-semibold"></p>
+    </div>
+
+    <!-- Login Screen (Waiting state before auth completes) -->
+    <div id="login-container" class="flex items-center justify-center min-h-screen">
+        <div class="card p-8 w-full max-w-sm text-center">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Trinity Finance Bank</h1>
+            <p class="text-sm text-gray-500 mb-6">Attempting to connect to your secure account...</p>
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <p class="text-xs text-gray-400 mt-4">Data is saved securely via Firestore.</p>
+        </div>
+    </div>
+
+
+    <!-- Main Content Wrapper (Contains all pages) -->
+    <div id="main-content" class="hidden">
+        <header class="mb-10 card p-4">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <h1 class="text-3xl font-bold text-gray-800 mb-4 md:mb-0">Trinity Finance</h1>
+                <nav class="flex space-x-2 md:space-x-4 text-lg">
+                    <span id="nav-dashboard-content" class="nav-link text-blue-600 font-bold border-b-2 border-blue-600" onclick="navigateTo('dashboard-content')">Dashboard</span>
+                    <span id="nav-transfer-content" class="nav-link" onclick="navigateTo('transfer-content')">Bank Transfer</span>
+                    <span id="nav-history-content" class="nav-link" onclick="navigateTo('history-content')">History</span>
+                </nav>
+            </div>
+        </header>
+
+        <!-- DASHBOARD PAGE CONTENT -->
+        <div id="dashboard-content" class="app-page">
+            <p class="text-lg text-gray-600 mb-6">Overview</p>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                <!-- Column 1: Balance and Account Info -->
+                <div class="lg:col-span-1 space-y-6">
+                    <!-- Balance Card -->
+                    <div class="card p-6 bg-blue-600 text-white">
+                        <p class="text-sm font-semibold opacity-80 mb-1">ACCOUNT BALANCE</p>
+                        <h2 id="balance" class="text-4xl sm:text-5xl font-extrabold">$0.00</h2>
+                    </div>
+
+                    <!-- Account Holder Details -->
+                    <div class="card p-6">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-4">Account Details</h3>
+                        <div class="space-y-3 text-sm">
+                            <p><span class="font-medium text-gray-500">Welcome:</span> <span id="account-holder-name" class="font-bold text-gray-900">Steven</span></p>
+                            <p><span class="font-medium text-gray-500">ACCOUNT TYPE:</span> <span class="font-semibold text-green-600">Fixed Deposit Account</span></p>
+                            <p><span class="font-medium text-gray-500">ACCOUNT NUMBER:</span> <span class="font-mono text-gray-700">7739118821</span></p>
+                            <p><span class="font-medium text-gray-500">TOTAL TRANSACTIONS:</span> <span id="total-transactions" class="font-bold text-gray-700">0</span></p>
+                            <p><span class="font-medium text-gray-500">Your User ID:</span> <span id="account-user-id" class="font-mono text-xs text-blue-500 break-all">---</span></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Column 2 & 3: Virtual Card and Actions -->
+                <div class="lg:col-span-2 space-y-6">
+
+                    <!-- Virtual Card -->
+                    <div class="gradient-card p-6 h-52 flex flex-col justify-between shadow-2xl">
+                        <div>
+                            <div class="text-xs font-light tracking-widest opacity-80 mb-2">Trinity Finance Virtual Card</div>
+                            <div class="text-3xl font-mono tracking-widest">4815 1623 4277 7179</div>
+                        </div>
+                        <div class="flex justify-between items-center text-sm font-semibold">
+                            <div>
+                                <p class="text-xs font-light opacity-80">CARDHOLDER</p>
+                                <p class="tracking-wider">STEVEN</p>
+                            </div>
+                            <div class="flex space-x-6">
+                                <div>
+                                    <p class="text-xs font-light opacity-80">VALID THRU</p>
+                                    <p class="tracking-wider">12/28</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-light opacity-80">CVV</p>
+                                    <p class="tracking-wider">823</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Deposit/Withdraw Card -->
+                    <div class="card p-6 space-y-4">
+                        <h3 class="text-xl font-semibold text-gray-800">Quick Actions</h3>
+                        <input type="number" id="transaction-amount" placeholder="Enter Amount ($)" step="0.01" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <div class="flex space-x-2">
+                            <button id="deposit-btn" class="w-1/2 btn-success font-bold py-3 rounded-lg">
+                                Deposit
+                            </button>
+                            <button id="withdraw-btn" class="w-1/2 btn-danger font-bold py-3 rounded-lg">
+                                Withdraw
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Transaction History Table (Last 10) -->
+            <div class="mt-8 card p-6">
+                <h3 class="text-2xl font-semibold text-gray-800 mb-4">Recent Transactions (Last 10)</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
+                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source/Detail</th>
+                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Running Balance</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dashboard-history-body" class="bg-white divide-y divide-gray-200">
+                            <!-- History rows inserted here by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- BANK TRANSFER PAGE CONTENT -->
+        <div id="transfer-content" class="app-page hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">Initiate Bank Transfer</h2>
+
+            <div class="card p-8 max-w-lg mx-auto space-y-6">
+                <p class="text-gray-600">Please enter the details of the recipient's external bank account.</p>
+                
+                <div>
+                    <label for="transfer-bank-name" class="block text-sm font-medium text-gray-700 mb-1">Recipient Bank Name</label>
+                    <input type="text" id="transfer-bank-name" placeholder="e.g., Global Financial Trust" required class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div>
+                    <label for="transfer-account-number" class="block text-sm font-medium text-gray-700 mb-1">Account Number (External)</label>
+                    <input type="text" id="transfer-account-number" placeholder="1234567890" required class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <div>
+                    <label for="transfer-amount" class="block text-sm font-medium text-gray-700 mb-1">Transfer Amount</label>
+                    <input type="number" id="transfer-amount" placeholder="Amount ($)" step="0.01" required class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <button id="transfer-submit-btn" class="w-full btn-primary font-bold py-3 rounded-lg">
+                    Confirm Transfer
+                </button>
+            </div>
+        </div>
+
+        <!-- FULL HISTORY PAGE CONTENT -->
+        <div id="history-content" class="app-page hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">Full Transaction History</h2>
+            <p class="text-gray-600 mb-4">Displaying all transactions chronologically: **Last Month to Recent**.</p>
+
+            <div class="mt-4 card p-6">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
+                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source/Detail</th>
+                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Running Balance</th>
+                            </tr>
+                        </thead>
+                        <tbody id="full-history-table-body" class="bg-white divide-y divide-gray-200">
+                            <!-- All history rows inserted here by renderFullHistory() -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- New OTP Verification Modal -->
+    <div id="otp-modal" class="modal-overlay hidden">
+        <div class="modal-content text-center">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Transfer Verification</h3>
+            <p class="text-gray-600 mb-4">Please enter the 6-digit One-Time Password (OTP) to confirm your transfer.</p>
+            <input 
+                type="text" 
+                id="otp-input" 
+                placeholder="6-digit OTP" 
+                maxlength="6"
+                inputmode="numeric"
+                pattern="[0-9]{6}"
+                class="w-full p-4 text-center text-2xl font-mono tracking-widest border-2 border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-6"
+            >
+            
+            <div class="flex space-x-3">
+                <button id="otp-cancel-btn" class="w-1/2 bg-gray-300 text-gray-800 font-bold py-3 rounded-lg hover:bg-gray-400">
+                    Cancel
+                </button>
+                <button id="otp-submit-btn" class="w-1/2 btn-primary font-bold py-3 rounded-lg">
+                    Verify & Send
+                </button>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
