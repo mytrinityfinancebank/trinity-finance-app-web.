@@ -144,15 +144,11 @@
         const otpInput = document.getElementById('otp-input');
         
         // Action buttons
-        const depositBtn = document.getElementById('deposit-btn');
-        const withdrawBtn = document.getElementById('withdraw-btn');
         const transferSubmitBtn = document.getElementById('transfer-submit-btn');
 
         // --- Utility Functions ---
 
         function setActionButtonsDisabled(disabled) {
-            depositBtn && (depositBtn.disabled = disabled);
-            withdrawBtn && (withdrawBtn.disabled = disabled);
             transferSubmitBtn && (transferSubmitBtn.disabled = disabled);
         }
 
@@ -220,12 +216,11 @@
                 transactionsToDisplay = sortedHistory.slice().reverse().slice(0, limit);
             }
             
-            // Determine insert position (0 for dashboard to show most recent at top, -1 for full history/chronological order)
-            const insertPosition = limit ? 0 : -1;
-
-
+            // Render rows
             transactionsToDisplay.forEach((tx, index) => { 
-                const row = tableBody.insertRow(insertPosition);
+                // Determine insertion position: 0 for dashboard (most recent first), -1 for full history (oldest first)
+                const insertPosition = limit ? 0 : -1;
+                const row = tableBody.insertRow(insertPosition); 
                 row.className = index % 2 === 0 ? 'bg-gray-50' : 'bg-white';
                 
                 let displayDate = 'N/A';
@@ -240,8 +235,7 @@
                     // For dashboard (reversed), index 0 is the most recent (just a count for last 10)
                     rowNumber = index + 1;
                 } else {
-                    // For full history (chronological), index 0 is the oldest (1-N)
-                    // The loop iterates over the chronologically sorted list, so index + 1 is the correct sequential number.
+                    // For full history (chronological, inserted via append -1), index + 1 is the correct sequential number.
                     rowNumber = sortedHistory.indexOf(tx) + 1; 
                 }
 
@@ -300,10 +294,11 @@
             let current_rb = 0.00;
 
             // --- UPDATED SEEDED HISTORY to match all user requests exactly ---
-            // Recalculated base: 71,800,000.00 (Target) - 41,200,550.00 (Net of other 9) = 30,599,450.00
+            // Net Change (excluding initial funding) = 42,450,350.00
+            // Initial Funding required: 71,800,000.00 - 42,450,350.00 = 29,349,650.00
             const seededHistory = [
                 // 1. Initial Calculated Seed to ensure final balance hits 71,800,000.00
-                { refId: 'TRXCFUND30M', type: 'Credit', amount: 30599450.00, timestamp: daysAgo(30), runningBalance: current_rb += 30599450.00, source: 'Initial Account Funding' }, 
+                { refId: 'TRXCFUND29M', type: 'Credit', amount: 29349650.00, timestamp: daysAgo(30), runningBalance: current_rb += 29349650.00, source: 'Initial Account Funding' }, 
                 
                 // 2. Standard Transaction
                 { refId: 'TRXD96E73C7', type: 'Debit', amount: 450.00, timestamp: daysAgo(29), runningBalance: current_rb -= 450.00, source: 'Online Payment - Utility' }, 
@@ -326,7 +321,7 @@
                 // 8. Standard Transaction
                 { refId: 'TRXDAD68D66D', type: 'Debit', amount: 50.00, timestamp: daysAgo(3), runningBalance: current_rb -= 50.00, source: 'Coffee Shop' }, 
                 
-                // 9. Aegis Wealth Planner Investment $10,200,950.00 CREDITS (User Requested)
+                // 9. Aegis Wealth Planner Investment $10,200,950.00 CREDIT (User Requested)
                 { refId: 'TRXCAEGIS10M', type: 'Credit', amount: 10200950.00, timestamp: daysAgo(1), runningBalance: current_rb += 10200950.00, source: 'Aegis Wealth Planner Investment' }, 
                 
                 // 10. Gold Linked Investment $31,000,000.00 CREDIT (User Requested)
@@ -537,23 +532,7 @@
             window.showOtpModal();
         };
 
-        window.handleDeposit = async () => {
-            const amountInput = document.getElementById('transaction-amount').value;
-            const amount = parseFloat(amountInput);
-            const success = await processTransaction(amount, 'Credit', 'Deposit');
-            if (success) {
-                document.getElementById('transaction-amount').value = '';
-            }
-        };
-
-        window.handleWithdraw = async () => {
-            const amountInput = document.getElementById('transaction-amount').value;
-            const amount = parseFloat(amountInput);
-            const success = await processTransaction(amount, 'Debit', 'Withdrawal');
-            if (success) {
-                document.getElementById('transaction-amount').value = '';
-            }
-        };
+        // Removed handleDeposit and handleWithdraw functions as requested.
 
 
         // --- Initialization ---
@@ -579,8 +558,7 @@
                 await initializeAccount();
                 
                 // Attach event listeners for the current page
-                document.getElementById('deposit-btn').onclick = window.handleDeposit;
-                document.getElementById('withdraw-btn').onclick = window.handleWithdraw;
+                // Removed deposit-btn and withdraw-btn listeners
                 document.getElementById('transfer-submit-btn').onclick = window.handleBankTransfer;
                 document.getElementById('otp-submit-btn').onclick = window.handleOtpSubmission; // New OTP submit listener
                 document.getElementById('otp-cancel-btn').onclick = window.hideOtpModal; // New OTP cancel listener
@@ -674,17 +652,11 @@
                         </div>
                     </div>
 
-                    <div class="card p-6 space-y-4">
-                        <h3 class="text-xl font-semibold text-gray-800">Quick Actions</h3>
-                        <input type="number" id="transaction-amount" placeholder="Enter Amount ($)" step="0.01" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <div class="flex space-x-2">
-                            <button id="deposit-btn" class="w-1/2 btn-success font-bold py-3 rounded-lg">
-                                Deposit
-                            </button>
-                            <button id="withdraw-btn" class="w-1/2 btn-danger font-bold py-3 rounded-lg">
-                                Withdraw
-                            </button>
-                        </div>
+                    <div class="card p-6 flex justify-between items-center">
+                        <h3 class="text-xl font-semibold text-gray-800">Need to transfer funds?</h3>
+                        <button onclick="navigateTo('transfer-content')" class="btn-primary font-bold py-2 px-4 rounded-lg">
+                            Go to Bank Transfer
+                        </button>
                     </div>
 
                 </div>
