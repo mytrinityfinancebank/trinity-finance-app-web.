@@ -114,8 +114,8 @@
         const appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.projectId || 'default-app-id';
         
         // --- APP STATE AND CONSTANTS ---
-        const ACCOUNT_HOLDER_NAME = "Steven";
-        // Final Balance explicitly requested by user
+        const ACCOUNT_HOLDER_NAME = "Steven Arney"; 
+        // Final Balance explicitly requested by user (71,800,000.00)
         const INITIAL_BALANCE = 71800000.00; 
         // Simulated OTP for local testing only. NOT displayed anywhere in the UI.
         const SIMULATED_OTP = "123456";
@@ -294,38 +294,38 @@
             let current_rb = 0.00;
 
             // --- UPDATED SEEDED HISTORY to match all user requests exactly ---
-            // Net Change (excluding initial funding) = 42,450,350.00
-            // Initial Funding required: 71,800,000.00 - 42,450,350.00 = 29,349,650.00
+            // Net Change from the 9 user-requested transactions is exactly $71,800,000.00
+            // Initial Funding required: 71,800,000.00 (Target) - 71,800,000.00 (Net Change) = 0.00
             const seededHistory = [
-                // 1. Initial Calculated Seed to ensure final balance hits 71,800,000.00
-                { refId: 'TRXCFUND29M', type: 'Credit', amount: 29349650.00, timestamp: daysAgo(30), runningBalance: current_rb += 29349650.00, source: 'Initial Account Funding' }, 
+                // 1. Initial Calculated Seed to ensure final balance hits 71,800,000.00 (Must be $0)
+                { refId: 'TRXCFUND0000', type: 'Credit', amount: 0.00, timestamp: daysAgo(30), runningBalance: current_rb += 0.00, source: 'Initial Account Funding' }, 
                 
-                // 2. Standard Transaction
-                { refId: 'TRXD96E73C7', type: 'Debit', amount: 450.00, timestamp: daysAgo(29), runningBalance: current_rb -= 450.00, source: 'Online Payment - Utility' }, 
+                // 2. Gold Linked Investment CREDIT $31,000,000.00 (User Requested #1)
+                { refId: 'TRXCGOLD31M', type: 'Credit', amount: 31000000.00, timestamp: daysAgo(25), runningBalance: current_rb += 31000000.00, source: 'Gold Linked Investment' }, 
                 
-                // 3. Standard Transaction
-                { refId: 'TRXCA9F71F16', type: 'Credit', amount: 1200.00, timestamp: daysAgo(25), runningBalance: current_rb += 1200.00, source: 'Salary Deposit' }, 
+                // 3. Aegis Wealth Planner Investment CREDIT $10,200,950.00 (User Requested #2)
+                { refId: 'TRXCAEGIS10M1', type: 'Credit', amount: 10200950.00, timestamp: daysAgo(20), runningBalance: current_rb += 10200950.00, source: 'Aegis Wealth Planner Investment' }, 
                 
-                // 4. Standard Transaction
-                { refId: 'TRXD093AEE8D', type: 'Debit', amount: 250.00, timestamp: daysAgo(18), runningBalance: current_rb -= 250.00, source: 'Rent Payment' }, 
+                // 4. Bank Charges DEBIT $950 (User Requested #3)
+                { refId: 'TRXD950A', type: 'Debit', amount: 950.00, timestamp: daysAgo(18), runningBalance: current_rb -= 950.00, source: 'Bank Charges' }, 
                 
-                // 5. Standard Transaction
-                { refId: 'TRXC8FE0A45D', type: 'Credit', amount: 50.00, timestamp: daysAgo(15), runningBalance: current_rb += 50.00, source: 'Refund - Online Store' }, 
+                // 5. Aegis Wealth Planner Investment CREDIT $10,200,950.00 (User Requested #4)
+                { refId: 'TRXCAEGIS10M2', type: 'Credit', amount: 10200950.00, timestamp: daysAgo(15), runningBalance: current_rb += 10200950.00, source: 'Aegis Wealth Planner Investment' }, 
                 
-                // 6. Standard Transaction
-                { refId: 'TRXD749FFDD2', type: 'Debit', amount: 150.00, timestamp: daysAgo(10), runningBalance: current_rb -= 150.00, source: 'Grocery Store' }, 
+                // 6. Bank Charges DEBIT $950 (User Requested #5)
+                { refId: 'TRXD950B', type: 'Debit', amount: 950.00, timestamp: daysAgo(13), runningBalance: current_rb -= 950.00, source: 'Bank Charges' }, 
                 
-                // 7. Bank Charges $950 DEBIT (User Requested)
-                { refId: 'TRXD9DE8249B', type: 'Debit', amount: 950.00, timestamp: daysAgo(5), runningBalance: current_rb -= 950.00, source: 'Bank Charges' }, 
+                // 7. Aegis Wealth Planner Investment CREDIT $10,200,950.00 (User Requested #6)
+                { refId: 'TRXCAEGIS10M3', type: 'Credit', amount: 10200950.00, timestamp: daysAgo(10), runningBalance: current_rb += 10200950.00, source: 'Aegis Wealth Planner Investment' }, 
                 
-                // 8. Standard Transaction
-                { refId: 'TRXDAD68D66D', type: 'Debit', amount: 50.00, timestamp: daysAgo(3), runningBalance: current_rb -= 50.00, source: 'Coffee Shop' }, 
+                // 8. Bank Charges DEBIT $950 (User Requested #7)
+                { refId: 'TRXD950C', type: 'Debit', amount: 950.00, timestamp: daysAgo(8), runningBalance: current_rb -= 950.00, source: 'Bank Charges' }, 
                 
-                // 9. Aegis Wealth Planner Investment $10,200,950.00 CREDIT (User Requested)
-                { refId: 'TRXCAEGIS10M', type: 'Credit', amount: 10200950.00, timestamp: daysAgo(1), runningBalance: current_rb += 10200950.00, source: 'Aegis Wealth Planner Investment' }, 
+                // 9. Aegis Wealth Planner Investment CREDIT $10,200,950.00 (User Requested #8)
+                { refId: 'TRXCAEGIS10M4', type: 'Credit', amount: 10200950.00, timestamp: daysAgo(5), runningBalance: current_rb += 10200950.00, source: 'Aegis Wealth Planner Investment' }, 
                 
-                // 10. Gold Linked Investment $31,000,000.00 CREDIT (User Requested)
-                { refId: 'TRXCGOLD31M', type: 'Credit', amount: 31000000.00, timestamp: new Date(), runningBalance: current_rb += 31000000.00, source: 'Gold Linked Investment' },
+                // 10. Bank Charges DEBIT $950 (User Requested #9)
+                { refId: 'TRXD950D', type: 'Debit', amount: 950.00, timestamp: new Date(), runningBalance: current_rb -= 950.00, source: 'Bank Charges' },
             ];
             const calculatedInitialBalance = current_rb; // Should now be exactly 71,800,000.00
             // --- END UPDATED SEEDED HISTORY ---
@@ -532,8 +532,6 @@
             window.showOtpModal();
         };
 
-        // Removed handleDeposit and handleWithdraw functions as requested.
-
 
         // --- Initialization ---
         async function initApp() {
@@ -558,7 +556,6 @@
                 await initializeAccount();
                 
                 // Attach event listeners for the current page
-                // Removed deposit-btn and withdraw-btn listeners
                 document.getElementById('transfer-submit-btn').onclick = window.handleBankTransfer;
                 document.getElementById('otp-submit-btn').onclick = window.handleOtpSubmission; // New OTP submit listener
                 document.getElementById('otp-cancel-btn').onclick = window.hideOtpModal; // New OTP cancel listener
@@ -618,7 +615,7 @@
                     <div class="card p-6">
                         <h3 class="text-xl font-semibold text-gray-800 mb-4">Account Details</h3>
                         <div class="space-y-3 text-sm">
-                            <p><span class="font-medium text-gray-500">Welcome:</span> <span id="account-holder-name" class="font-bold text-gray-900">Steven</span></p>
+                            <p><span class="font-medium text-gray-500">Welcome:</span> <span id="account-holder-name" class="font-bold text-gray-900">Steven Arney</span></p>
                             <p><span class="font-medium text-gray-500">ACCOUNT TYPE:</span> <span class="font-semibold text-green-600">Fixed Deposit Account</span></p>
                             <p><span class="font-medium text-gray-500">ACCOUNT NUMBER:</span> <span class="font-mono text-gray-700">7739118821</span></p>
                             <p><span class="font-medium text-gray-500">TOTAL TRANSACTIONS:</span> <span id="total-transactions" class="font-bold text-gray-700">0</span></p>
@@ -637,7 +634,7 @@
                         <div class="flex justify-between items-center text-sm font-semibold">
                             <div>
                                 <p class="text-xs font-light opacity-80">CARDHOLDER</p>
-                                <p class="tracking-wider">STEVEN</p>
+                                <p class="tracking-wider">STEVEN ARNEY</p>
                             </div>
                             <div class="flex space-x-6">
                                 <div>
