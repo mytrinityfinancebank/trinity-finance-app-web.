@@ -79,57 +79,18 @@
 </head>
 <body class="p-4 sm:p-8">
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, onSnapshot, updateDoc, arrayUnion, runTransaction, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // ----------------------------------------------------------------------
-        // --- IMPORTANT: FIREBASE SECURITY RULES GUIDE (required for access) ---
-        // ----------------------------------------------------------------------
-        /*
-        rules_version = '2';
-        service cloud.firestore {
-          match /databases/{database}/documents {
-            // Rule for private user data (used by this app)
-            match /artifacts/{appId}/users/{userId}/{document=**} {
-              allow read, write: if request.auth != null && request.auth.uid == userId;
-            }
-          }
-        }
-        */
-        // ----------------------------------------------------------------------
-
-
-        // --- GLOBAL VARIABLES & CONFIGURATION ---
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "AIzaSyACOITBYfN3Y1G1-QTWgo_t1PutVlsLYKI",
-            authDomain: "trinity-finance-app-6002.firebaseapp.com",
-            projectId: "trinity-finance-app-6002",
-            storageBucket: "trinity-finance-app-6002.firebasestorage.app",
-            messagingSenderId: "545859635678",
-            appId: "1:545859635678:web:6b13c3da6c61a23b23354f",
-            measurementId: "G-NLWB0495RW"
-        };
-        const appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.projectId || 'default-app-id';
-        
+    <script>
         // --- APP STATE AND CONSTANTS ---
         const ACCOUNT_HOLDER_NAME = "Steven Arney"; 
-        const INITIAL_BALANCE = 71800000.00; 
-        const BANK_ADDRESS = "499 Stratford Court, Raleigh NC 27615"; 
-        const SUPPORT_NUMBER = "(504) 499-5059"; 
-        // Simulated OTP for local testing only. NOT displayed anywhere in the UI.
+        const CALCULATED_FINAL_BALANCE = 71800000.00; // Hardcoded final balance
         const SIMULATED_OTP = "123456";
         
-        let app;
-        let db;
-        let auth;
-        let userId = null; // Will be set on successful login
-        let accountRef = null;
-        let currentBalance = INITIAL_BALANCE;
+        let initialHistory = [];
+        let currentBalance = 0.00; // Will be set on login
         let transactionHistory = [];
         let pendingTransfer = null; 
-        
+        let userId = null; 
+
         // --- HTML Element References ---
         const bodyEl = document.querySelector('body');
         const balanceEl = document.getElementById('balance');
@@ -208,9 +169,9 @@
             
             // Sort history: Ensure it is sorted chronologically (oldest to newest)
             const sortedHistory = [...history].sort((a, b) => {
-                const dateA = typeof a.timestamp.toDate === 'function' ? a.timestamp.toDate() : new Date(a.timestamp);
-                const dateB = typeof b.timestamp.toDate === 'function' ? b.timestamp.toDate() : new Date(b.timestamp);
-                return dateA - dateB; // Sort ascending (Last Month to Recent)
+                const dateA = a.timestamp instanceof Date ? a.timestamp : new Date(a.timestamp);
+                const dateB = b.timestamp instanceof Date ? b.timestamp : new Date(b.timestamp);
+                return dateA.getTime() - dateB.getTime(); // Sort ascending (Last Month to Recent)
             });
 
             // If a limit is set, reverse the array to show the most recent transactions first, then slice.
@@ -221,24 +182,18 @@
             
             // Render rows
             transactionsToDisplay.forEach((tx, index) => { 
-                // Determine insertion position: 0 for dashboard (most recent first), -1 for full history (oldest first)
-                const insertPosition = limit ? 0 : -1;
-                const row = tableBody.insertRow(insertPosition); 
+                const row = tableBody.insertRow(-1); // Insert at end for both sorted/reversed lists
                 row.className = index % 2 === 0 ? 'bg-gray-50' : 'bg-white';
                 
-                let displayDate = 'N/A';
-                if (tx.timestamp) {
-                    const dateObj = typeof tx.timestamp.toDate === 'function' ? tx.timestamp.toDate() : new Date(tx.timestamp);
-                    displayDate = dateObj.toLocaleDateString();
-                }
+                const dateObj = tx.timestamp instanceof Date ? tx.timestamp : new Date(tx.timestamp);
+                const displayDate = dateObj.toLocaleDateString();
 
-                // Row Number (#) logic
                 let rowNumber;
                 if (limit) {
-                    // For dashboard (reversed), index 0 is the most recent (just a count for last 10)
+                    // For dashboard (reversed/last 10), show index + 1
                     rowNumber = index + 1;
                 } else {
-                    // For full history (chronological, inserted via append -1), index + 1 is the correct sequential number.
+                    // For full history (chronological), get the original index + 1
                     rowNumber = sortedHistory.indexOf(tx) + 1; 
                 }
 
@@ -287,157 +242,80 @@
                 renderHistoryTable(fullHistoryTableBody, transactionHistory, null);
             }
         }
-
-
-        async function initializeAccount() {
-            // Relies on userId being set by handleLogin
-            accountRef = doc(db, 'artifacts', appId, 'users', userId, 'accountData', 'main'); 
-            
+        
+        // --- SYNCHRONOUS SEEDING DATA FUNCTION ---
+        function getSeededHistory() {
             let current_rb = 0.00;
-
-            // --- SEEDED HISTORY (Dates set to June - November 2016 for user's request) ---
-            const seededHistory = [
+            const history = [
                 // 1. Initial Calculated Seed
                 { refId: 'TRXCFUND0000', type: 'Credit', amount: 0.00, timestamp: new Date('2016-06-01'), runningBalance: current_rb += 0.00, source: 'Initial Account Funding' }, 
-                
-                // 2. Gold Linked Investment CREDIT $31,000,000.00 (User Requested #1)
+                // 2. Gold Linked Investment CREDIT $31,000,000.00
                 { refId: 'TRXCGOLD31M', type: 'Credit', amount: 31000000.00, timestamp: new Date('2016-06-25'), runningBalance: current_rb += 31000000.00, source: 'Gold Linked Investment' }, 
-                
-                // 3. Aegis Wealth Planner Investment CREDIT $10,200,950.00 (User Requested #2)
+                // 3. Aegis Wealth Planner Investment CREDIT $10,200,950.00
                 { refId: 'TRXCAEGIS10M1', type: 'Credit', amount: 10200950.00, timestamp: new Date('2016-07-20'), runningBalance: current_rb += 10200950.00, source: 'Aegis Wealth Planner Investment' }, 
-                
-                // 4. Bank Charges DEBIT $950 (User Requested #3)
+                // 4. Bank Charges DEBIT $950
                 { refId: 'TRXD950A', type: 'Debit', amount: 950.00, timestamp: new Date('2016-08-05'), runningBalance: current_rb -= 950.00, source: 'Bank Charges' }, 
-                
-                // 5. Aegis Wealth Planner Investment CREDIT $10,200,950.00 (User Requested #4)
+                // 5. Aegis Wealth Planner Investment CREDIT $10,200,950.00
                 { refId: 'TRXCAEGIS10M2', type: 'Credit', amount: 10200950.00, timestamp: new Date('2016-08-20'), runningBalance: current_rb += 10200950.00, source: 'Aegis Wealth Planner Investment' }, 
-                
-                // 6. Bank Charges DEBIT $950 (User Requested #5)
+                // 6. Bank Charges DEBIT $950
                 { refId: 'TRXD950B', type: 'Debit', amount: 950.00, timestamp: new Date('2016-09-10'), runningBalance: current_rb -= 950.00, source: 'Bank Charges' }, 
-                
-                // 7. Aegis Wealth Planner Investment CREDIT $10,200,950.00 (User Requested #6)
+                // 7. Aegis Wealth Planner Investment CREDIT $10,200,950.00
                 { refId: 'TRXCAEGIS10M3', type: 'Credit', amount: 10200950.00, timestamp: new Date('2016-10-01'), runningBalance: current_rb += 10200950.00, source: 'Aegis Wealth Planner Investment' }, 
-                
-                // 8. Bank Charges DEBIT $950 (User Requested #7)
+                // 8. Bank Charges DEBIT $950
                 { refId: 'TRXD950C', type: 'Debit', amount: 950.00, timestamp: new Date('2016-10-20'), runningBalance: current_rb -= 950.00, source: 'Bank Charges' }, 
-                
-                // 9. Aegis Wealth Planner Investment CREDIT $10,200,950.00 (User Requested #8)
+                // 9. Aegis Wealth Planner Investment CREDIT $10,200,950.00
                 { refId: 'TRXCAEGIS10M4', type: 'Credit', amount: 10200950.00, timestamp: new Date('2016-11-05'), runningBalance: current_rb += 10200950.00, source: 'Aegis Wealth Planner Investment' }, 
-                
-                // 10. Bank Charges DEBIT $950 (User Requested #9)
+                // 10. Bank Charges DEBIT $950
                 { refId: 'TRXD950D', type: 'Debit', amount: 950.00, timestamp: new Date('2016-11-30'), runningBalance: current_rb -= 950.00, source: 'Bank Charges' },
             ];
-            const calculatedInitialBalance = current_rb; // This value is exactly 71,800,000.00
-            // --- END SEEDED HISTORY ---
-
-
-            try {
-                const docSnap = await getDoc(accountRef);
-
-                const finalRunningBalance = calculatedInitialBalance; 
-
-                const dataToSet = {
-                    balance: finalRunningBalance,
-                    accountHolder: ACCOUNT_HOLDER_NAME,
-                    history: seededHistory, // Always set the user's latest requested history
-                    // Preserve the original creation date if the document exists
-                    createdAt: docSnap.exists() && docSnap.data().createdAt ? docSnap.data().createdAt : new Date(), 
-                };
-
-                // Use setDoc/updateDoc to ensure the latest seeded history is always present
-                if (!docSnap.exists()) {
-                    await setDoc(accountRef, dataToSet);
-                    showMessage("New account created and seeded with starting balance.", 'success');
-                } else {
-                    // Always update with the latest seeded data to fix any manual changes in the history
-                    await updateDoc(accountRef, dataToSet); 
-                }
-                
-                // --- FIX: Immediately update local state and render dashboard for fast UI response ---
-                currentBalance = dataToSet.balance;
-                transactionHistory = dataToSet.history;
-                renderDashboard();
-                // --- END FIX ---
-
-
-                // Set up real-time listener (Keep this for future transactions)
-                onSnapshot(accountRef, (doc) => {
-                    if (doc.exists()) {
-                        const data = doc.data();
-                        currentBalance = data.balance;
-                        // The history will now be the one we just updated
-                        transactionHistory = Array.isArray(data.history) ? data.history : [];
-                        renderDashboard(); // Always update dashboard
-                        
-                        // If on history page, re-render it
-                        if (!document.getElementById('history-content').classList.contains('hidden')) {
-                            renderFullHistory();
-                        }
-                    }
-                }, (error) => {
-                    console.error("Error listening to account data:", error);
-                    showMessage("Error reading account data. Check console.", 'error');
-                });
-
-            } catch (error) {
-                console.error("Error initializing account:", error);
-                showMessage("Failed to connect to the database. Permissions issue likely.", 'error');
-            }
+            return history;
         }
+        initialHistory = getSeededHistory();
 
-        // --- UPDATED: LOGIN HANDLER ---
-        window.handleLogin = async () => {
+        // --- UPDATED: LOGIN HANDLER (Synchronous) ---
+        window.handleLogin = () => {
             const usernameInput = document.getElementById('login-username').value.trim();
             const passwordInput = document.getElementById('login-password').value.trim();
             
             // Define required credentials
             const REQUIRED_USER_ID = "stevenarny@987"; 
             const REQUIRED_PASSWORD = "Arney987"; 
-            
-            // Firestore-safe ID based on the user's request (used for persistence)
             const PERSISTENT_USER_ID = "stevenarny987"; 
             
-            // Simple validation/simulation
-            if (usernameInput !== REQUIRED_USER_ID) {
-                showMessage("Invalid User ID.", 'error');
-                return;
-            }
-            if (passwordInput !== REQUIRED_PASSWORD) {
-                showMessage("Invalid Password.", 'error');
+            // Validation
+            if (usernameInput !== REQUIRED_USER_ID || passwordInput !== REQUIRED_PASSWORD) {
+                showMessage("Invalid User ID or Password.", 'error');
                 return;
             }
 
             loginSubmitBtn.disabled = true;
 
-            // Set the persistent ID for Firestore
+            // FIX: Synchronously set global variables to the expected state
             userId = PERSISTENT_USER_ID; 
+            currentBalance = CALCULATED_FINAL_BALANCE;
+            transactionHistory = initialHistory; 
+            
+            // Immediately render the dashboard
+            renderDashboard(); 
 
-            try {
-                // Initialize the account with the determined userId
-                // This now includes a synchronous renderDashboard() call after data is written.
-                await initializeAccount(); 
+            // Login successful: Hide login screen and show main content
+            loginContainer.classList.add('hidden');
+            mainContent.classList.remove('hidden');
+            accountUserIdEl.textContent = PERSISTENT_USER_ID;
+            window.navigateTo('dashboard-content');
+            showMessage(`Welcome back, ${ACCOUNT_HOLDER_NAME}`, 'success');
 
-                // Login successful: Hide login screen and show main content
-                loginContainer.classList.add('hidden');
-                mainContent.classList.remove('hidden');
-                accountUserIdEl.textContent = PERSISTENT_USER_ID; // Display the persistent ID
-                window.navigateTo('dashboard-content');
-                showMessage(`Welcome back, ${ACCOUNT_HOLDER_NAME}`, 'success');
-
-                // Attach app event listeners after successful login
-                document.getElementById('transfer-submit-btn').onclick = window.handleBankTransfer;
-                document.getElementById('otp-submit-btn').onclick = window.handleOtpSubmission; 
-                document.getElementById('otp-cancel-btn').onclick = window.hideOtpModal; 
-
-            } catch (error) {
-                console.error("Login failed:", error);
-                showMessage("Login failed. Could not load account data.", 'error');
-            } finally {
-                loginSubmitBtn.disabled = false;
-            }
+            // Attach app event listeners
+            document.getElementById('transfer-submit-btn').onclick = window.handleBankTransfer;
+            document.getElementById('otp-submit-btn').onclick = window.handleOtpSubmission; 
+            document.getElementById('otp-cancel-btn').onclick = window.hideOtpModal; 
+            
+            loginSubmitBtn.disabled = false;
         };
 
-        async function processTransaction(amount, type, source = 'User Action') {
+
+        // --- UPDATED: TRANSACTION HANDLER (Local State Management) ---
+        function processTransaction(amount, type, source = 'User Action') {
             if (amount <= 0 || isNaN(amount)) {
                 showMessage("Invalid amount.", 'error');
                 return false;
@@ -445,62 +323,50 @@
 
             setActionButtonsDisabled(true); 
 
-            let newBalance;
+            let newBalance = currentBalance;
             const refId = generateRefId(type);
+            let success = false;
 
             try {
-                const transactionResult = await runTransaction(db, async (transaction) => {
-                    const docSnap = await transaction.get(accountRef);
-                    if (!docSnap.exists()) {
-                        throw "Account document does not exist!";
+                if (type === 'Debit') {
+                    if (newBalance < amount) {
+                        throw new Error("Transaction failed: Insufficient funds (Overdraft prevented).");
                     }
-
-                    const data = docSnap.data();
-                    let currentBalanceInTx = data.balance;
-                    
-                    if (type === 'Debit') {
-                        if (currentBalanceInTx < amount) {
-                            throw new Error("Insufficient funds (Overdraft prevented).");
-                        }
-                        newBalance = currentBalanceInTx - amount;
-                    } else if (type === 'Credit') {
-                        newBalance = currentBalanceInTx + amount;
-                    }
-
-                    // For new transactions, we'll use the current date/time
-                    const newTransaction = {
-                        refId: refId,
-                        type: type,
-                        amount: amount,
-                        timestamp: new Date(), 
-                        runningBalance: newBalance,
-                        source: source
-                    };
-
-                    transaction.update(accountRef, {
-                        balance: newBalance,
-                        history: arrayUnion(newTransaction)
-                    });
-                    
-                    return true;
-                });
+                    newBalance -= amount;
+                } else if (type === 'Credit') {
+                    newBalance += amount;
+                }
                 
-                showMessage(`${type} of ${formatCurrency(amount)} successful.`, 'success');
-                return transactionResult; 
+                // Update local state variables
+                currentBalance = newBalance;
+                
+                const newTransaction = {
+                    refId: refId,
+                    type: type,
+                    amount: amount,
+                    timestamp: new Date(), 
+                    runningBalance: newBalance,
+                    source: source
+                };
+                
+                // Add new transaction to history
+                transactionHistory.push(newTransaction);
+                
+                // Re-render the UI
+                renderDashboard();
+                
+                showMessage(`${type} of ${formatCurrency(amount)} successful. New Balance: ${formatCurrency(currentBalance)}`, 'success');
+                success = true;
 
             } catch (error) {
                 console.error("Transaction failed:", error);
-                const msg = typeof error === 'string' ? error : (error.message || "Database error occurred.");
-                    // Check if the error is the insufficient funds message and handle it appropriately
-                    if (msg.includes("Insufficient funds")) {
-                        showMessage("Transaction failed: Insufficient funds (Overdraft prevented).", 'error');
-                    } else {
-                        showMessage(msg, 'error');
-                    }
-                return false;
+                const msg = error.message || "An unknown error occurred.";
+                showMessage(msg, 'error');
             } finally {
                 setActionButtonsDisabled(false); 
             }
+            
+            return success;
         }
 
         // Function to show the OTP modal
@@ -516,7 +382,7 @@
         };
         
         // New function to handle the OTP submission
-        window.handleOtpSubmission = async () => {
+        window.handleOtpSubmission = () => {
             const enteredOtp = otpInput.value.trim();
             
             // Require a 6-digit numeric OTP
@@ -545,7 +411,7 @@
             const { amount, source } = pendingTransfer;
             
             // A bank transfer is a DEBIT from the user's account
-            const debitSuccess = await processTransaction(amount, 'Debit', source);
+            const debitSuccess = processTransaction(amount, 'Debit', source); 
             
             if (debitSuccess) {
                 // Clear form and navigate back to the dashboard upon success
@@ -560,7 +426,7 @@
         };
 
 
-        window.handleBankTransfer = async () => {
+        window.handleBankTransfer = () => {
             const recipientBank = document.getElementById('transfer-bank-name').value.trim();
             const accountNumber = document.getElementById('transfer-account-number').value.trim();
             const amountInput = document.getElementById('transfer-amount').value;
@@ -593,27 +459,17 @@
 
 
         // --- Initialization ---
-        async function initApp() {
-            try {
-                app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app); 
-                setLogLevel('debug');
-                
-                // Show the body content now that the script has initialized
-                bodyEl.style.visibility = 'visible'; 
-                
-                // Keep the login container visible and wait for user interaction
-                loginContainer.classList.remove('hidden');
-                mainContent.classList.add('hidden');
-                
-                // Attach login event listener
-                loginSubmitBtn.onclick = window.handleLogin;
-                
-            } catch (error) {
-                console.error("Firebase Initialization/Sign-In Error:", error);
-                showMessage("Critical Error: Failed to initialize application data. Please check Firebase Auth and Security Rules.", 'error');
-            }
+        function initApp() {
+            
+            // Show the body content now that the script has initialized
+            bodyEl.style.visibility = 'visible'; 
+            
+            // Keep the login container visible and wait for user interaction
+            loginContainer.classList.remove('hidden');
+            mainContent.classList.add('hidden');
+            
+            // Attach login event listener
+            loginSubmitBtn.onclick = window.handleLogin;
         }
 
         window.onload = initApp;
@@ -678,7 +534,7 @@
                             <p><span class="font-medium text-gray-500">ACCOUNT NUMBER:</span> <span class="font-mono text-gray-700">7739118821</span></p>
                             <p><span class="font-medium text-gray-500">TOTAL TRANSACTIONS:</span> <span id="total-transactions" class="font-bold text-gray-700">0</span></p>
                             <p><span class="font-medium text-gray-500">Your User ID (Persistent):</span> <span id="account-user-id" class="font-mono text-xs text-blue-500 break-all">---</span></p>
-                            </div>
+                        </div>
                     </div>
                 </div>
 
