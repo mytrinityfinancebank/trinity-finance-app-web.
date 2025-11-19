@@ -116,8 +116,8 @@
         // --- APP STATE AND CONSTANTS ---
         const ACCOUNT_HOLDER_NAME = "Steven Arney"; 
         const INITIAL_BALANCE = 71800000.00; 
-        const BANK_ADDRESS = "499 Stratford Court, Raleigh NC 27615"; // New Constant
-        const SUPPORT_NUMBER = "(504) 499-5059"; // New Constant
+        const BANK_ADDRESS = "499 Stratford Court, Raleigh NC 27615"; 
+        const SUPPORT_NUMBER = "(504) 499-5059"; 
         // Simulated OTP for local testing only. NOT displayed anywhere in the UI.
         const SIMULATED_OTP = "123456";
         
@@ -144,8 +144,8 @@
         const accountHolderEl = document.getElementById('account-holder-name');
         const otpModal = document.getElementById('otp-modal');
         const otpInput = document.getElementById('otp-input');
-        const bankAddressEl = document.getElementById('bank-address'); // New Ref
-        const supportNumberEl = document.getElementById('support-number'); // New Ref
+        const bankAddressEl = document.getElementById('bank-address'); 
+        const supportNumberEl = document.getElementById('support-number'); 
         
         // Action buttons
         const transferSubmitBtn = document.getElementById('transfer-submit-btn');
@@ -278,8 +278,6 @@
             balanceEl.textContent = formatCurrency(currentBalance);
             accountHolderEl.textContent = ACCOUNT_HOLDER_NAME;
             totalTransactionsEl.textContent = transactionHistory.length;
-            bankAddressEl.textContent = BANK_ADDRESS; // Set Address
-            supportNumberEl.textContent = SUPPORT_NUMBER; // Set Support Number
             
             // Render only the last 10 transactions on the dashboard (most recent first)
             renderHistoryTable(dashboardHistoryBody, transactionHistory, 10);
@@ -595,6 +593,12 @@
                 auth = getAuth(app); // Still need auth for anonymous sign-in in a real setup, but here we'll just set it up.
                 setLogLevel('debug');
                 
+                // Set Global Footer Information
+                if (bankAddressEl && supportNumberEl) {
+                    bankAddressEl.textContent = BANK_ADDRESS;
+                    supportNumberEl.textContent = SUPPORT_NUMBER;
+                }
+                
                 // Show the body content now that the script has initialized
                 bodyEl.style.visibility = 'visible'; 
                 
@@ -619,7 +623,7 @@
         <p id="message-text" class="font-semibold"></p>
     </div>
 
-    <div id="login-container" class="flex items-center justify-center min-h-screen">
+    <div id="login-container" class="flex flex-col items-center justify-center min-h-screen relative">
         <div class="card p-8 w-full max-w-sm text-center">
             <h1 class="text-3xl font-bold text-gray-800 mb-2">Trinity Finance Bank</h1>
             <p class="text-sm text-gray-500 mb-6">Secure Account Login</p>
@@ -638,8 +642,16 @@
             <button id="login-submit-btn" class="w-full btn-primary font-bold py-3 rounded-lg">
                 Sign In
             </button>
-            
-            </div>
+        </div>
+        
+        <div class="text-center text-gray-500 mt-6">
+            <p class="text-sm font-semibold mb-1">Trinity Finance Bank</p>
+            <p class="text-xs">Address: 499 Stratford Court, Raleigh NC 27615</p>
+            <p class="text-xs">Customer Support: (504) 499-5059</p>
+        </div>
+        
+        <p class="text-xs text-red-500 mt-4">Note: Use User ID: **stevenarny@987**, Password: **Arney987** to sign in.</p>
+
     </div>
 
 
@@ -786,14 +798,14 @@
                 </div>
             </div>
         </div>
-
-        <footer class="mt-12 text-center text-gray-500 border-t pt-6">
-            <p class="text-sm font-semibold mb-2">Trinity Finance Bank</p>
-            <p class="text-xs mb-1">Address: <span id="bank-address" class="font-medium"></span></p>
-            <p class="text-xs">Customer Support: <span id="support-number" class="font-medium"></span></p>
-        </footer>
-
     </div>
+
+    <footer class="mt-12 text-center text-gray-500 border-t pt-6">
+        <p class="text-sm font-semibold mb-2">Trinity Finance Bank</p>
+        <p class="text-xs mb-1">Address: <span id="bank-address" class="font-medium"></span></p>
+        <p class="text-xs">Customer Support: <span id="support-number" class="font-medium"></span></p>
+    </footer>
+
 
     <div id="otp-modal" class="modal-overlay hidden">
         <div class="modal-content text-center">
