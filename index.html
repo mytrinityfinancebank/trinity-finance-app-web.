@@ -91,29 +91,30 @@
         let pendingTransfer = null; 
         let userId = null; 
 
-        // --- HTML Element References ---
-        const bodyEl = document.querySelector('body');
-        const balanceEl = document.getElementById('balance');
-        const dashboardHistoryBody = document.getElementById('dashboard-history-body');
-        const fullHistoryTableBody = document.getElementById('full-history-table-body');
-        const totalTransactionsEl = document.getElementById('total-transactions');
-        const messageBox = document.getElementById('message-box');
-        const messageText = document.getElementById('message-text');
-        const loginContainer = document.getElementById('login-container');
-        const mainContent = document.getElementById('main-content');
-        const accountUserIdEl = document.getElementById('account-user-id');
-        const accountHolderEl = document.getElementById('account-holder-name');
-        const otpModal = document.getElementById('otp-modal');
-        const otpInput = document.getElementById('otp-input');
+        // --- HTML Element References (Declared here, assigned in initApp) ---
+        let bodyEl;
+        let balanceEl;
+        let dashboardHistoryBody;
+        let fullHistoryTableBody;
+        let totalTransactionsEl;
+        let messageBox;
+        let messageText;
+        let loginContainer;
+        let mainContent;
+        let accountUserIdEl;
+        let accountHolderEl;
+        let otpModal;
+        let otpInput;
         
         // Action buttons
-        const transferSubmitBtn = document.getElementById('transfer-submit-btn');
-        const loginSubmitBtn = document.getElementById('login-submit-btn');
+        let transferSubmitBtn;
+        let loginSubmitBtn;
 
         // --- Utility Functions ---
 
         function setActionButtonsDisabled(disabled) {
-            transferSubmitBtn && (transferSubmitBtn.disabled = disabled);
+            // Ensure elements are available before attempting to disable them
+            if (transferSubmitBtn) transferSubmitBtn.disabled = disabled;
         }
 
         function showMessage(msg, type = 'success') {
@@ -272,7 +273,7 @@
         }
         initialHistory = getSeededHistory();
 
-        // --- UPDATED: LOGIN HANDLER (Synchronous) ---
+        // --- LOGIN HANDLER ---
         window.handleLogin = () => {
             const usernameInput = document.getElementById('login-username').value.trim();
             const passwordInput = document.getElementById('login-password').value.trim();
@@ -290,7 +291,7 @@
 
             loginSubmitBtn.disabled = true;
 
-            // FIX: Synchronously set global variables to the expected state
+            // Synchronously set global variables to the expected state
             userId = PERSISTENT_USER_ID; 
             currentBalance = CALCULATED_FINAL_BALANCE;
             transactionHistory = initialHistory; 
@@ -306,7 +307,7 @@
             showMessage(`Welcome back, ${ACCOUNT_HOLDER_NAME}`, 'success');
 
             // Attach app event listeners
-            document.getElementById('transfer-submit-btn').onclick = window.handleBankTransfer;
+            transferSubmitBtn.onclick = window.handleBankTransfer;
             document.getElementById('otp-submit-btn').onclick = window.handleOtpSubmission; 
             document.getElementById('otp-cancel-btn').onclick = window.hideOtpModal; 
             
@@ -314,7 +315,7 @@
         };
 
 
-        // --- UPDATED: TRANSACTION HANDLER (Local State Management) ---
+        // --- TRANSACTION HANDLER (Local State Management) ---
         function processTransaction(amount, type, source = 'User Action') {
             if (amount <= 0 || isNaN(amount)) {
                 showMessage("Invalid amount.", 'error');
@@ -460,6 +461,22 @@
 
         // --- Initialization ---
         function initApp() {
+            // FIX: Assign all element variables here, ensuring they exist
+            bodyEl = document.querySelector('body');
+            balanceEl = document.getElementById('balance');
+            dashboardHistoryBody = document.getElementById('dashboard-history-body');
+            fullHistoryTableBody = document.getElementById('full-history-table-body');
+            totalTransactionsEl = document.getElementById('total-transactions');
+            messageBox = document.getElementById('message-box');
+            messageText = document.getElementById('message-text');
+            loginContainer = document.getElementById('login-container');
+            mainContent = document.getElementById('main-content');
+            accountUserIdEl = document.getElementById('account-user-id');
+            accountHolderEl = document.getElementById('account-holder-name');
+            otpModal = document.getElementById('otp-modal');
+            otpInput = document.getElementById('otp-input');
+            transferSubmitBtn = document.getElementById('transfer-submit-btn');
+            loginSubmitBtn = document.getElementById('login-submit-btn');
             
             // Show the body content now that the script has initialized
             bodyEl.style.visibility = 'visible'; 
@@ -469,7 +486,10 @@
             mainContent.classList.add('hidden');
             
             // Attach login event listener
-            loginSubmitBtn.onclick = window.handleLogin;
+            // This now works because loginSubmitBtn is guaranteed to hold the element reference
+            if (loginSubmitBtn) {
+                loginSubmitBtn.onclick = window.handleLogin;
+            }
         }
 
         window.onload = initApp;
