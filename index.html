@@ -352,8 +352,15 @@
                     // Always update with the latest seeded data to fix any manual changes in the history
                     await updateDoc(accountRef, dataToSet); 
                 }
+                
+                // --- FIX: Immediately update local state and render dashboard for fast UI response ---
+                currentBalance = dataToSet.balance;
+                transactionHistory = dataToSet.history;
+                renderDashboard();
+                // --- END FIX ---
 
-                // Set up real-time listener
+
+                // Set up real-time listener (Keep this for future transactions)
                 onSnapshot(accountRef, (doc) => {
                     if (doc.exists()) {
                         const data = doc.data();
@@ -407,6 +414,7 @@
 
             try {
                 // Initialize the account with the determined userId
+                // This now includes a synchronous renderDashboard() call after data is written.
                 await initializeAccount(); 
 
                 // Login successful: Hide login screen and show main content
