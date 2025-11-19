@@ -1,69 +1,21 @@
-// Replace the existing initApp() function body with this snippet.
-async function initApp() {
-    try {
-        app = initializeApp(firebaseConfig);
-        db = getFirestore(app);
-        auth = getAuth(app);
-        setLogLevel('debug');
+<!-- Replace your existing <header class="mb-10 card p-4"> ... </header> with this header block -->
+<header class="mb-10 card p-4">
+  <div class="flex flex-col md:flex-row justify-between items-center">
+    <div class="flex items-center space-x-4">
+      <a href="/trinity-finance-app-web/" class="flex items-center" aria-label="Trinity Finance home">
+        <!-- Inline SVG fallback: use the file you added to /assets/logo.svg -->
+        <img src="/assets/logo.svg" alt="Trinity Finance" width="180" height="48" class="block" />
+      </a>
+      <div class="hidden sm:block">
+        <h1 class="text-2xl font-bold text-gray-800">Trinity Finance</h1>
+        <p class="text-xs text-gray-500">Secure personal banking dashboard</p>
+      </div>
+    </div>
 
-        // Sign in
-        let userCredential;
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-            try {
-                userCredential = await signInWithCustomToken(auth, __initial_auth_token);
-                console.info('Signed in with custom token.');
-            } catch (err) {
-                console.error('Custom token sign-in failed:', err);
-                throw new Error('Authentication failed with custom token. Check token and project.');
-            }
-        } else {
-            try {
-                userCredential = await signInAnonymously(auth);
-                console.info('Signed in anonymously.');
-            } catch (err) {
-                console.error('Anonymous sign-in failed:', err);
-                throw new Error('Anonymous authentication failed. Ensure Anonymous sign-in is enabled in Firebase console.');
-            }
-        }
-
-        if (!userCredential || !userCredential.user) {
-            console.error('Auth returned no user credential:', userCredential, 'auth.currentUser:', auth.currentUser);
-            throw new Error('Authentication did not return a valid user. Check Firebase Auth configuration.');
-        }
-
-        userId = userCredential.user.uid;
-        console.info('Authenticated as userId:', userId);
-        accountUserIdEl.textContent = userId;
-
-        loginContainer.classList.add('hidden');
-        mainContent.classList.remove('hidden');
-
-        // Initialize account and attach listeners
-        try {
-            await initializeAccount();
-        } catch (err) {
-            // If initializeAccount throws, include error details in UI & console
-            console.error('initializeAccount failed:', err);
-            showMessage('Failed to connect to the database. Permissions issue likely. Check console for Firestore error.', 'error');
-            // Leave login shown so user knows it's not connected
-            loginContainer.classList.remove('hidden');
-            mainContent.classList.add('hidden');
-            return;
-        }
-
-        // Attach UI event listeners
-        document.getElementById('deposit-btn').onclick = window.handleDeposit;
-        document.getElementById('withdraw-btn').onclick = window.handleWithdraw;
-        document.getElementById('transfer-submit-btn').onclick = window.handleBankTransfer;
-        document.getElementById('otp-submit-btn').onclick = window.handleOtpSubmission;
-        document.getElementById('otp-cancel-btn').onclick = window.hideOtpModal;
-
-        window.navigateTo('dashboard-content');
-
-    } catch (error) {
-        console.error("Firebase Initialization/Sign-In Error:", error);
-        showMessage("Critical Error: Failed to initialize application data. Check Firebase Auth and Security Rules. See console for details.", 'error');
-        loginContainer.classList.remove('hidden');
-        mainContent.classList.add('hidden');
-    }
-}
+    <nav class="flex space-x-2 md:space-x-4 text-lg mt-4 md:mt-0" aria-label="Main navigation">
+      <span id="nav-dashboard-content" class="nav-link text-blue-600 font-bold border-b-2 border-blue-600" onclick="navigateTo('dashboard-content')">Dashboard</span>
+      <span id="nav-transfer-content" class="nav-link" onclick="navigateTo('transfer-content')">Bank Transfer</span>
+      <span id="nav-history-content" class="nav-link" onclick="navigateTo('history-content')">History</span>
+    </nav>
+  </div>
+</header>
