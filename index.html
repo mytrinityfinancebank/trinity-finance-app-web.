@@ -115,7 +115,6 @@
         
         // --- APP STATE AND CONSTANTS ---
         const ACCOUNT_HOLDER_NAME = "Steven Arney"; 
-        // Final Balance explicitly requested by user (71,800,000.00)
         const INITIAL_BALANCE = 71800000.00; 
         // Simulated OTP for local testing only. NOT displayed anywhere in the UI.
         const SIMULATED_OTP = "123456";
@@ -123,7 +122,7 @@
         let app;
         let db;
         let auth;
-        let userId = null;
+        let userId = null; // Will be set on successful login
         let accountRef = null;
         let currentBalance = INITIAL_BALANCE;
         let transactionHistory = [];
@@ -145,6 +144,7 @@
         
         // Action buttons
         const transferSubmitBtn = document.getElementById('transfer-submit-btn');
+        const loginSubmitBtn = document.getElementById('login-submit-btn');
 
         // --- Utility Functions ---
 
@@ -287,14 +287,14 @@
 
 
         async function initializeAccount() {
-            accountRef = doc(db, 'artifacts', appId, 'users', userId, 'accountData', 'main');
+            // Relies on userId being set by handleLogin
+            accountRef = doc(db, 'artifacts', appId, 'users', userId, 'accountData', 'main'); 
             
             // Helper function to create a date x days ago
             const daysAgo = (days) => new Date(Date.now() - days * 86400000);
             let current_rb = 0.00;
 
-            // --- UPDATED SEEDED HISTORY to match all user requests exactly (and ensure balance is $71,800,000.00) ---
-            
+            // --- SEEDED HISTORY ---
             const seededHistory = [
                 // 1. Initial Calculated Seed to ensure final balance hits 71,800,000.00 (Must be $0)
                 { refId: 'TRXCFUND0000', type: 'Credit', amount: 0.00, timestamp: daysAgo(30), runningBalance: current_rb += 0.00, source: 'Initial Account Funding' }, 
@@ -326,8 +326,8 @@
                 // 10. Bank Charges DEBIT $950 (User Requested #9)
                 { refId: 'TRXD950D', type: 'Debit', amount: 950.00, timestamp: new Date(), runningBalance: current_rb -= 950.00, source: 'Bank Charges' },
             ];
-            const calculatedInitialBalance = current_rb; // Should now be exactly 71,800,000.00
-            // --- END UPDATED SEEDED HISTORY ---
+            const calculatedInitialBalance = current_rb; 
+            // --- END SEEDED HISTORY ---
 
 
             try {
@@ -343,13 +343,12 @@
                     createdAt: docSnap.exists() && docSnap.data().createdAt ? docSnap.data().createdAt : new Date(), 
                 };
 
+                // Use setDoc/updateDoc to ensure the latest seeded history is always present
                 if (!docSnap.exists()) {
                     await setDoc(accountRef, dataToSet);
                     showMessage("New account created and seeded with starting balance.", 'success');
                 } else {
-                    // FIX: Force update the existing document with the new name, balance, and history.
                     await updateDoc(accountRef, dataToSet); 
-                    // Optional: showMessage("Account data updated with new history and balance.", 'success');
                 }
 
                 // Set up real-time listener
@@ -377,6 +376,58 @@
             }
         }
 
+        // --- UPDATED: LOGIN HANDLER ---
+        window.handleLogin = async () => {
+            const usernameInput = document.getElementById('login-username').value.trim();
+            const passwordInput = document.getElementById('login-password').value.trim();
+            
+            // Define required credentials
+            const REQUIRED_USER_ID = "stevenarny@987"; // The user's input ID
+            const REQUIRED_PASSWORD = "Arney987"; // The user's requested password
+            
+            // Firestore-safe ID based on the user's request (used for persistence)
+            const PERSISTENT_USER_ID = "stevenarny987"; 
+            
+            // Simple validation/simulation
+            if (usernameInput !== REQUIRED_USER_ID) {
+                showMessage("Invalid User ID.", 'error');
+                return;
+            }
+            if (passwordInput !== REQUIRED_PASSWORD) {
+                showMessage("Invalid Password.", 'error');
+                return;
+            }
+
+            loginSubmitBtn.disabled = true;
+
+            // Set the persistent ID for Firestore
+            userId = PERSISTENT_USER_ID; 
+
+            try {
+                // Initialize the account with the determined userId
+                await initializeAccount(); 
+
+                // Login successful: Hide login screen and show main content
+                loginContainer.classList.add('hidden');
+                mainContent.classList.remove('hidden');
+                accountUserIdEl.textContent = PERSISTENT_USER_ID; // Display the persistent ID
+                window.navigateTo('dashboard-content');
+                showMessage(`Welcome back, ${ACCOUNT_HOLDER_NAME}`, 'success');
+
+                // Attach app event listeners after successful login
+                document.getElementById('transfer-submit-btn').onclick = window.handleBankTransfer;
+                document.getElementById('otp-submit-btn').onclick = window.handleOtpSubmission; 
+                document.getElementById('otp-cancel-btn').onclick = window.hideOtpModal; 
+
+            } catch (error) {
+                console.error("Login failed:", error);
+                showMessage("Login failed. Could not load account data.", 'error');
+            } finally {
+                loginSubmitBtn.disabled = false;
+            }
+        };
+
+        // ... processTransaction, showOtpModal, handleOtpSubmission, handleBankTransfer functions remain here ...
         async function processTransaction(amount, type, source = 'User Action') {
             if (amount <= 0 || isNaN(amount)) {
                 showMessage("Invalid amount.", 'error');
@@ -536,36 +587,19 @@
             try {
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
-                auth = getAuth(app);
+                auth = getAuth(app); // Still need auth for anonymous sign-in in a real setup, but here we'll just set it up.
                 setLogLevel('debug');
                 
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
+                // Keep the login container visible and wait for user interaction
+                loginContainer.classList.remove('hidden');
+                mainContent.classList.add('hidden');
                 
-                userId = auth.currentUser.uid;
-                accountUserIdEl.textContent = userId;
-                
-                loginContainer.classList.add('hidden');
-                mainContent.classList.remove('hidden');
-                
-                await initializeAccount();
-                
-                // Attach event listeners for the current page
-                document.getElementById('transfer-submit-btn').onclick = window.handleBankTransfer;
-                document.getElementById('otp-submit-btn').onclick = window.handleOtpSubmission; // New OTP submit listener
-                document.getElementById('otp-cancel-btn').onclick = window.hideOtpModal; // New OTP cancel listener
-                
-                // Navigate to the Dashboard initially
-                window.navigateTo('dashboard-content');
+                // Attach login event listener
+                loginSubmitBtn.onclick = window.handleLogin;
                 
             } catch (error) {
                 console.error("Firebase Initialization/Sign-In Error:", error);
                 showMessage("Critical Error: Failed to initialize application data. Please check Firebase Auth and Security Rules.", 'error');
-                loginContainer.classList.remove('hidden');
-                mainContent.classList.add('hidden');
             }
         }
 
@@ -580,9 +614,24 @@
     <div id="login-container" class="flex items-center justify-center min-h-screen">
         <div class="card p-8 w-full max-w-sm text-center">
             <h1 class="text-3xl font-bold text-gray-800 mb-2">Trinity Finance Bank</h1>
-            <p class="text-sm text-gray-500 mb-6">Attempting to connect to your secure account...</p>
-            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
-            <p class="text-xs text-gray-400 mt-4">Data is saved securely via Firestore.</p>
+            <p class="text-sm text-gray-500 mb-6">Secure Account Login</p>
+            
+            <div class="space-y-4 mb-6">
+                <div>
+                    <input type="text" id="login-username" placeholder="User ID (stevenarny@987)" required 
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <input type="password" id="login-password" placeholder="Password (Arney987)" required 
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+            
+            <button id="login-submit-btn" class="w-full btn-primary font-bold py-3 rounded-lg">
+                Sign In
+            </button>
+            
+            <p class="text-xs text-gray-400 mt-4">Required Credentials: User ID: **stevenarny@987**, Password: **Arney987**.</p>
         </div>
     </div>
 
@@ -617,7 +666,7 @@
                             <p><span class="font-medium text-gray-500">ACCOUNT TYPE:</span> <span class="font-semibold text-green-600">Fixed Deposit Account</span></p>
                             <p><span class="font-medium text-gray-500">ACCOUNT NUMBER:</span> <span class="font-mono text-gray-700">7739118821</span></p>
                             <p><span class="font-medium text-gray-500">TOTAL TRANSACTIONS:</span> <span id="total-transactions" class="font-bold text-gray-700">0</span></p>
-                            <p><span class="font-medium text-gray-500">Your User ID:</span> <span id="account-user-id" class="font-mono text-xs text-blue-500 break-all">---</span></p>
+                            <p><span class="font-medium text-gray-500">Your User ID (Persistent):</span> <span id="account-user-id" class="font-mono text-xs text-blue-500 break-all">---</span></p>
                         </div>
                     </div>
                 </div>
