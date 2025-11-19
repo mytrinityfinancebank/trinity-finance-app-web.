@@ -144,8 +144,6 @@
         const accountHolderEl = document.getElementById('account-holder-name');
         const otpModal = document.getElementById('otp-modal');
         const otpInput = document.getElementById('otp-input');
-        const bankAddressEl = document.getElementById('bank-address'); 
-        const supportNumberEl = document.getElementById('support-number'); 
         
         // Action buttons
         const transferSubmitBtn = document.getElementById('transfer-submit-btn');
@@ -593,12 +591,6 @@
                 auth = getAuth(app); // Still need auth for anonymous sign-in in a real setup, but here we'll just set it up.
                 setLogLevel('debug');
                 
-                // Set Global Footer Information
-                if (bankAddressEl && supportNumberEl) {
-                    bankAddressEl.textContent = BANK_ADDRESS;
-                    supportNumberEl.textContent = SUPPORT_NUMBER;
-                }
-                
                 // Show the body content now that the script has initialized
                 bodyEl.style.visibility = 'visible'; 
                 
@@ -650,8 +642,6 @@
             <p class="text-xs">Customer Support: (504) 499-5059</p>
         </div>
         
-        <p class="text-xs text-red-500 mt-4">Note: Use User ID: **stevenarny@987**, Password: **Arney987** to sign in.</p>
-
     </div>
 
 
@@ -686,6 +676,8 @@
                             <p><span class="font-medium text-gray-500">ACCOUNT NUMBER:</span> <span class="font-mono text-gray-700">7739118821</span></p>
                             <p><span class="font-medium text-gray-500">TOTAL TRANSACTIONS:</span> <span id="total-transactions" class="font-bold text-gray-700">0</span></p>
                             <p><span class="font-medium text-gray-500">Your User ID (Persistent):</span> <span id="account-user-id" class="font-mono text-xs text-blue-500 break-all">---</span></p>
+                            <p><span class="font-medium text-gray-500">Bank Address:</span> <span class="font-bold text-gray-900">499 Stratford Court, Raleigh NC 27615</span></p>
+                            <p><span class="font-medium text-gray-500">Customer Support:</span> <span class="font-bold text-gray-900">(504) 499-5059</span></p>
                         </div>
                     </div>
                 </div>
@@ -799,13 +791,6 @@
             </div>
         </div>
     </div>
-
-    <footer class="mt-12 text-center text-gray-500 border-t pt-6">
-        <p class="text-sm font-semibold mb-2">Trinity Finance Bank</p>
-        <p class="text-xs mb-1">Address: <span id="bank-address" class="font-medium"></span></p>
-        <p class="text-xs">Customer Support: <span id="support-number" class="font-medium"></span></p>
-    </footer>
-
 
     <div id="otp-modal" class="modal-overlay hidden">
         <div class="modal-content text-center">
