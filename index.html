@@ -54,16 +54,6 @@
             -moz-appearance: textfield;
         }
 
-        /* Login Input Styles */
-        .login-input { 
-            width: 100%; padding: 0.75rem; margin-bottom: 1rem; border: 1px solid #e2e8f0; 
-            border-radius: 0.5rem; outline: none; transition: border-color 0.2s; 
-        }
-        .login-input:focus { 
-            border-color: #2563eb; 
-            box-shadow: 0 0 0 2px #bfdbfe; /* Custom ring effect */
-        }
-
         /* --- New Modal Styles --- */
         .modal-overlay {
             position: fixed;
@@ -91,7 +81,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, onSnapshot, updateDoc, arrayUnion, runTransaction, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // ----------------------------------------------------------------------
@@ -124,13 +114,11 @@
         const appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.projectId || 'default-app-id';
         
         // --- APP STATE AND CONSTANTS ---
-        const ACCOUNT_HOLDER_NAME = "Steven Arney"; // Correctly updated
+        const ACCOUNT_HOLDER_NAME = "Steven";
+        // Final Balance explicitly requested by user
         const INITIAL_BALANCE = 71800000.00; 
+        // Simulated OTP for local testing only. NOT displayed anywhere in the UI.
         const SIMULATED_OTP = "123456";
-
-        // --- MANUAL LOGIN CREDENTIALS ---
-        const VALID_USER_ID = "stevenarny@987";
-        const VALID_PASSWORD = "Arney987";
         
         let app;
         let db;
@@ -139,20 +127,32 @@
         let accountRef = null;
         let currentBalance = INITIAL_BALANCE;
         let transactionHistory = [];
-        let pendingTransfer = null;
+        let pendingTransfer = null; 
         
-        // --- HTML Element References (Initialized in window.onload) ---
-        let balanceEl, dashboardHistoryBody, fullHistoryTableBody, totalTransactionsEl;
-        let messageBox, messageText, loginContainer, mainContent, accountUserIdEl, accountHolderEl;
-        let otpModal, otpInput, transferSubmitBtn; 
+        // --- HTML Element References ---
+        const balanceEl = document.getElementById('balance');
+        const dashboardHistoryBody = document.getElementById('dashboard-history-body');
+        const fullHistoryTableBody = document.getElementById('full-history-table-body');
+        const totalTransactionsEl = document.getElementById('total-transactions');
+        const messageBox = document.getElementById('message-box');
+        const messageText = document.getElementById('message-text');
+        const loginContainer = document.getElementById('login-container');
+        const mainContent = document.getElementById('main-content');
+        const accountUserIdEl = document.getElementById('account-user-id');
+        const accountHolderEl = document.getElementById('account-holder-name');
+        const otpModal = document.getElementById('otp-modal');
+        const otpInput = document.getElementById('otp-input');
         
-        // Login Elements
-        let userIdInput, passwordInput, loginBtn, loginErrorMsg;
+        // Action buttons
+        const depositBtn = document.getElementById('deposit-btn');
+        const withdrawBtn = document.getElementById('withdraw-btn');
+        const transferSubmitBtn = document.getElementById('transfer-submit-btn');
 
         // --- Utility Functions ---
 
         function setActionButtonsDisabled(disabled) {
-            // Only transferSubmitBtn remains for actions
+            depositBtn && (depositBtn.disabled = disabled);
+            withdrawBtn && (withdrawBtn.disabled = disabled);
             transferSubmitBtn && (transferSubmitBtn.disabled = disabled);
         }
 
@@ -180,9 +180,12 @@
         // --- Navigation Logic (SPA) ---
 
         window.navigateTo = function(pageId) {
+            // Hide all pages
             document.querySelectorAll('.app-page').forEach(page => page.classList.add('hidden'));
+            // Show the requested page
             document.getElementById(pageId).classList.remove('hidden');
             
+            // Update navigation active state
             document.querySelectorAll('.nav-link').forEach(link => {
                 link.classList.remove('text-blue-600', 'font-bold', 'border-b-2', 'border-blue-600');
                 link.classList.add('text-gray-500');
@@ -193,6 +196,7 @@
                 activeLink.classList.remove('text-gray-500');
             }
             
+            // Render content for specific pages
             if (pageId === 'history-content') {
                 renderFullHistory();
             }
@@ -203,22 +207,23 @@
         function renderHistoryTable(tableBody, history, limit = null) {
             tableBody.innerHTML = '';
             
+            // Sort history: Ensure it is sorted chronologically (oldest to newest)
             const sortedHistory = [...history].sort((a, b) => {
                 const dateA = typeof a.timestamp.toDate === 'function' ? a.timestamp.toDate() : new Date(a.timestamp);
                 const dateB = typeof b.timestamp.toDate === 'function' ? b.timestamp.toDate() : new Date(b.timestamp);
-                return dateA - dateB; // Sort ascending (oldest to newest)
+                return dateA - dateB; // Sort ascending (Last Month to Recent)
             });
 
             let transactionsToDisplay;
             if (limit) {
-                // Dashboard: Show most recent first (reverse and slice)
+                // Dashboard: Reverse array to show most recent first, then slice
                 transactionsToDisplay = sortedHistory.slice().reverse().slice(0, limit);
             } else {
-                // Full History: Show chronologically (oldest to newest)
+                // Full History: Use the chronological sort (oldest to newest)
                 transactionsToDisplay = sortedHistory;
             }
             
-            // Determine insert position (0 for dashboard to show most recent at top, -1 for full history)
+            // Determine insert position (0 for dashboard to show most recent at top, -1 for full history/chronological order)
             const insertPosition = limit ? 0 : -1;
 
             transactionsToDisplay.forEach((tx, index) => { 
@@ -234,15 +239,16 @@
                 // Row Number (#) logic
                 let rowNumber;
                 if (limit) {
-                    // For dashboard (reversed), index 0 is the most recent
+                    // For dashboard (reversed), index 0 is the most recent (just a count for last 10)
                     rowNumber = index + 1;
                 } else {
-                    // For full history (chronological), index 0 is the oldest
-                    rowNumber = index + 1;
+                    // For full history (chronological), index 0 is the oldest (1-N)
+                    // The loop iterates over the chronologically sorted list, so index + 1 is the correct sequential number.
+                    rowNumber = sortedHistory.indexOf(tx) + 1; 
                 }
 
                 const cellIndex = row.insertCell();
-                cellIndex.textContent = rowNumber;
+                cellIndex.textContent = rowNumber; 
                 cellIndex.className = 'py-2 px-4 text-gray-500';
 
                 const cellRef = row.insertCell();
@@ -276,11 +282,13 @@
             accountHolderEl.textContent = ACCOUNT_HOLDER_NAME;
             totalTransactionsEl.textContent = transactionHistory.length;
             
+            // Render only the last 10 transactions on the dashboard (most recent first)
             renderHistoryTable(dashboardHistoryBody, transactionHistory, 10);
         }
 
         function renderFullHistory() {
             if (fullHistoryTableBody) {
+                // Render all transactions in chronological order (Last Month to Recent)
                 renderHistoryTable(fullHistoryTableBody, transactionHistory, null);
             }
         }
@@ -289,28 +297,55 @@
         async function initializeAccount() {
             accountRef = doc(db, 'artifacts', appId, 'users', userId, 'accountData', 'main');
             
+            // Helper function to create a date x days ago
             const daysAgo = (days) => new Date(Date.now() - days * 86400000);
+            let current_rb = 0.00;
+
+            // --- UPDATED SEEDED HISTORY to match all user requests ---
+            const seededHistory = [
+                // 1. Aegis Wealth Planner Investment (Credit, ADJUSTED to achieve final balance)
+                { refId: 'TRXCAEGIS408', type: 'Credit', amount: 40800400.00, timestamp: daysAgo(30), runningBalance: current_rb += 40800400.00, source: 'Aegis Wealth Planner Investment' }, 
+                
+                // 2. Debit 450.00
+                { refId: 'TRXD96E73C7', type: 'Debit', amount: 450.00, timestamp: daysAgo(29), runningBalance: current_rb -= 450.00, source: 'Online Payment - Utility' }, 
+                
+                // 3. Credit 1200.00
+                { refId: 'TRXCA9F71F16', type: 'Credit', amount: 1200.00, timestamp: daysAgo(25), runningBalance: current_rb += 1200.00, source: 'Salary Deposit' }, 
+                
+                // 4. Debit 250.00
+                { refId: 'TRXD093AEE8D', type: 'Debit', amount: 250.00, timestamp: daysAgo(18), runningBalance: current_rb -= 250.00, source: 'Rent Payment' }, 
+                
+                // 5. Credit 50.00
+                { refId: 'TRXC8FE0A45D', type: 'Credit', amount: 50.00, timestamp: daysAgo(15), runningBalance: current_rb += 50.00, source: 'Refund - Online Store' }, 
+                
+                // 6. Debit 150.00
+                { refId: 'TRXD749FFDD2', type: 'Debit', amount: 150.00, timestamp: daysAgo(10), runningBalance: current_rb -= 150.00, source: 'Grocery Store' }, 
+                
+                // 7. Debit 950.00 -> Bank Charges $950 DEBIT
+                { refId: 'TRXD9DE8249B', type: 'Debit', amount: 950.00, timestamp: daysAgo(5), runningBalance: current_rb -= 950.00, source: 'Bank Charges' }, 
+                
+                // 8. Debit 50.00
+                { refId: 'TRXDAD68D66D', type: 'Debit', amount: 50.00, timestamp: daysAgo(3), runningBalance: current_rb -= 50.00, source: 'Coffee Shop' }, 
+                
+                // 9. Credit 200.00
+                { refId: 'TRXCC5B2F62F', type: 'Credit', amount: 200.00, timestamp: daysAgo(1), runningBalance: current_rb += 200.00, source: 'Freelance Income' }, 
+                
+                // 10. Credit 31,000,000.00 -> Gold Linked Investment $31,000,000.00 CREDIT
+                { refId: 'TRXCGOLD31M', type: 'Credit', amount: 31000000.00, timestamp: new Date(), runningBalance: current_rb += 31000000.00, source: 'Gold Linked Investment' },
+            ];
+            const calculatedInitialBalance = current_rb;
+            // --- END UPDATED SEEDED HISTORY ---
+
 
             try {
                 const docSnap = await getDoc(accountRef);
 
                 if (!docSnap.exists()) {
-                    // Seed data to establish the starting balance
-                    const seededHistory = [
-                        { refId: 'TRXD96E73C7', type: 'Debit', amount: 450.00, timestamp: daysAgo(29), runningBalance: 71799550.00, source: 'Online Payment - Utility' }, 
-                        { refId: 'TRXCA9F71F16', type: 'Credit', amount: 1200.00, timestamp: daysAgo(25), runningBalance: 71800750.00, source: 'Salary Deposit' }, 
-                        { refId: 'TRXD093AEE8D', type: 'Debit', amount: 250.00, timestamp: daysAgo(18), runningBalance: 71800500.00, source: 'Rent Payment' }, 
-                        { refId: 'TRXC8FE0A45D', type: 'Credit', amount: 50.00, timestamp: daysAgo(15), runningBalance: 71800550.00, source: 'Refund - Online Store' }, 
-                        { refId: 'TRXD749FFDD2', type: 'Debit', amount: 150.00, timestamp: daysAgo(10), runningBalance: 71800400.00, source: 'Grocery Store' }, 
-                        { refId: 'TRXC9DE8249B', type: 'Credit', amount: 500.00, timestamp: daysAgo(5), runningBalance: 71800900.00, source: 'Investment Payout' }, 
-                        { refId: 'TRXDAD68D66D', type: 'Debit', amount: 50.00, timestamp: daysAgo(3), runningBalance: 71800850.00, source: 'Coffee Shop' }, 
-                        { refId: 'TRXCC5B2F62F', type: 'Credit', amount: 200.00, timestamp: daysAgo(1), runningBalance: 71801050.00, source: 'Freelance Income' }, 
-                        { refId: 'TRXCC5B2162F', type: 'Credit', amount: -1050.00, timestamp: new Date(), runningBalance: 71800000.00, source: 'Initial Seed Adjustment' },
-                    ];
-                    const actualInitialBalance = INITIAL_BALANCE;
+                    
+                    const finalRunningBalance = calculatedInitialBalance; // Should be 71800000.00
 
                     const data = {
-                        balance: actualInitialBalance,
+                        balance: finalRunningBalance,
                         accountHolder: ACCOUNT_HOLDER_NAME,
                         history: seededHistory,
                         createdAt: new Date(),
@@ -319,19 +354,22 @@
                     showMessage("New account created and seeded with starting balance.", 'success');
                 } else {
                     const data = docSnap.data();
-                    // Ensure the account holder name is updated if it was previously set to "Steven"
                     if (data.accountHolder !== ACCOUNT_HOLDER_NAME) {
-                           await updateDoc(accountRef, { accountHolder: ACCOUNT_HOLDER_NAME });
+                           await updateDoc(accountRef, {
+                                accountHolder: ACCOUNT_HOLDER_NAME,
+                            });
                     }
                 }
 
+                // Set up real-time listener
                 onSnapshot(accountRef, (doc) => {
                     if (doc.exists()) {
                         const data = doc.data();
                         currentBalance = data.balance;
                         transactionHistory = Array.isArray(data.history) ? data.history : [];
-                        renderDashboard();
+                        renderDashboard(); // Always update dashboard
                         
+                        // If on history page, re-render it
                         if (!document.getElementById('history-content').classList.contains('hidden')) {
                             renderFullHistory();
                         }
@@ -361,27 +399,36 @@
             try {
                 const transactionResult = await runTransaction(db, async (transaction) => {
                     const docSnap = await transaction.get(accountRef);
-                    if (!docSnap.exists()) { throw "Account document does not exist!"; }
+                    if (!docSnap.exists()) {
+                        throw "Account document does not exist!";
+                    }
 
                     const data = docSnap.data();
                     let currentBalanceInTx = data.balance;
                     
                     if (type === 'Debit') {
-                        if (currentBalanceInTx < amount) { throw new Error("Insufficient funds (Overdraft prevented)."); }
+                        if (currentBalanceInTx < amount) {
+                            throw new Error("Insufficient funds (Overdraft prevented).");
+                        }
                         newBalance = currentBalanceInTx - amount;
                     } else if (type === 'Credit') {
                         newBalance = currentBalanceInTx + amount;
                     }
 
                     const newTransaction = {
-                        refId: refId, type: type, amount: amount, timestamp: new Date(),
-                        runningBalance: newBalance, source: source
+                        refId: refId,
+                        type: type,
+                        amount: amount,
+                        timestamp: new Date(),
+                        runningBalance: newBalance,
+                        source: source
                     };
 
                     transaction.update(accountRef, {
                         balance: newBalance,
                         history: arrayUnion(newTransaction)
                     });
+                    
                     return true;
                 });
                 
@@ -391,154 +438,166 @@
             } catch (error) {
                 console.error("Transaction failed:", error);
                 const msg = typeof error === 'string' ? error : (error.message || "Database error occurred.");
-                if (msg.includes("Insufficient funds")) {
-                    showMessage("Transaction failed: Insufficient funds (Overdraft prevented).", 'error');
-                } else {
-                    showMessage(msg, 'error');
-                }
+                    // Check if the error is the insufficient funds message and handle it appropriately
+                    if (msg.includes("Insufficient funds")) {
+                        showMessage("Transaction failed: Insufficient funds (Overdraft prevented).", 'error');
+                    } else {
+                        showMessage(msg, 'error');
+                    }
                 return false;
             } finally {
                 setActionButtonsDisabled(false); 
             }
         }
 
-        // Functions for Modal/Transfer 
-        window.showOtpModal = () => { otpInput.value = ''; otpModal.classList.remove('hidden'); };
-        window.hideOtpModal = () => { otpModal.classList.add('hidden'); pendingTransfer = null; };
+        // Function to show the OTP modal
+        window.showOtpModal = () => {
+            otpInput.value = '';
+            otpModal.classList.remove('hidden');
+        };
+
+        // Function to hide the OTP modal
+        window.hideOtpModal = () => {
+            otpModal.classList.add('hidden');
+            pendingTransfer = null; // Clear pending data if user cancels/closes
+        };
         
+        // New function to handle the OTP submission
         window.handleOtpSubmission = async () => {
             const enteredOtp = otpInput.value.trim();
-            if (!/^\d{6}$/.test(enteredOtp)) { showMessage("Please enter a valid 6-digit OTP.", 'error'); otpInput.value = ''; return; }
-            if (!pendingTransfer) { showMessage("Security error: No pending transfer data.", 'error'); window.hideOtpModal(); return; }
-            if (enteredOtp !== SIMULATED_OTP) { showMessage("Invalid OTP. Please try again.", 'error'); otpInput.value = ''; return; }
+            
+            // Require a 6-digit numeric OTP
+            if (!/^\d{6}$/.test(enteredOtp)) {
+                showMessage("Please enter a valid 6-digit OTP.", 'error');
+                otpInput.value = '';
+                return;
+            }
 
-            window.hideOtpModal();
+            if (!pendingTransfer) {
+                showMessage("Security error: No pending transfer data.", 'error');
+                window.hideOtpModal();
+                return;
+            }
+
+            // Compare against the simulated OTP constant (local testing only)
+            if (enteredOtp !== SIMULATED_OTP) {
+                showMessage("Invalid OTP. Please try again.", 'error');
+                otpInput.value = '';
+                return;
+            }
+
+            // OTP is correct, proceed with the transaction
+            window.hideOtpModal(); // Hide modal immediately
+
             const { amount, source } = pendingTransfer;
+            
+            // A bank transfer is a DEBIT from the user's account
             const debitSuccess = await processTransaction(amount, 'Debit', source);
             
             if (debitSuccess) {
+                // Clear form and navigate back to the dashboard upon success
                 document.getElementById('transfer-bank-name').value = '';
                 document.getElementById('transfer-account-number').value = '';
                 document.getElementById('transfer-amount').value = '';
                 window.navigateTo('dashboard-content');
             }
+            
+            // Clear pending transfer data regardless of the final success status of processTransaction
             pendingTransfer = null;
         };
+
 
         window.handleBankTransfer = async () => {
             const recipientBank = document.getElementById('transfer-bank-name').value.trim();
             const accountNumber = document.getElementById('transfer-account-number').value.trim();
-            const amount = parseFloat(document.getElementById('transfer-amount').value);
+            const amountInput = document.getElementById('transfer-amount').value;
+            const amount = parseFloat(amountInput);
             
-            if (!userId) { showMessage("Authentication required.", 'error'); return; }
-            if (!recipientBank || accountNumber.length < 8 || amount <= 0 || isNaN(amount)) { showMessage("Invalid inputs", 'error'); return; }
-            if (currentBalance < amount) { showMessage("Insufficient funds for transfer.", 'error'); return; }
+            if (!userId) {
+                showMessage("Authentication required.", 'error');
+                return;
+            }
+            if (!recipientBank || accountNumber.length < 8) {
+                showMessage("Please enter valid recipient bank and account details.", 'error');
+                return;
+            }
+            if (amount <= 0 || isNaN(amount)) {
+                showMessage("Invalid transfer amount.", 'error');
+                return;
+            }
+            if (currentBalance < amount) {
+                showMessage("Insufficient funds for transfer.", 'error');
+                return;
+            }
             
+            // Step 1: Store transfer details and require OTP
             const source = `Bank Transfer to ${recipientBank} - Acct: ${accountNumber.substring(accountNumber.length - 4)}`;
             pendingTransfer = { amount, source };
+
+            // Show OTP modal for confirmation
             window.showOtpModal();
         };
 
-        // --- MANUAL LOGIN LOGIC ---
-        async function handleLogin() {
-            const uid = userIdInput.value.trim();
-            const pass = passwordInput.value.trim();
-            
-            loginErrorMsg.classList.add('hidden');
-            loginBtn.textContent = "Verifying...";
-            loginBtn.disabled = true;
-
-            // Simulate a network delay
-            await new Promise(resolve => setTimeout(resolve, 800));
-
-            if (uid === VALID_USER_ID && pass === VALID_PASSWORD) {
-                // SUCCESS - Authenticate with Firebase and initialize app
-                try {
-                    await signInAnonymously(auth);
-                    
-                    userId = auth.currentUser.uid;
-                    accountUserIdEl.textContent = userId;
-                    
-                    loginContainer.classList.add('hidden');
-                    mainContent.classList.remove('hidden');
-                    
-                    await initializeAccount();
-                    
-                    // Attach main content handlers
-                    document.getElementById('transfer-submit-btn').onclick = window.handleBankTransfer;
-                    document.getElementById('otp-submit-btn').onclick = window.handleOtpSubmission;
-                    document.getElementById('otp-cancel-btn').onclick = window.hideOtpModal;
-                    
-                    window.navigateTo('dashboard-content');
-                } catch (error) {
-                    console.error("Firebase Sign-In Error:", error);
-                    loginErrorMsg.textContent = "Connection Error. Failed to secure session.";
-                    loginErrorMsg.classList.remove('hidden');
-                    loginBtn.textContent = "Sign In";
-                    loginBtn.disabled = false;
-                }
-            } else {
-                // FAIL
-                loginErrorMsg.textContent = "Invalid Credentials. Please try again.";
-                loginErrorMsg.classList.remove('hidden');
-                loginBtn.textContent = "Sign In";
-                loginBtn.disabled = false;
+        window.handleDeposit = async () => {
+            const amountInput = document.getElementById('transaction-amount').value;
+            const amount = parseFloat(amountInput);
+            const success = await processTransaction(amount, 'Credit', 'Deposit');
+            if (success) {
+                document.getElementById('transaction-amount').value = '';
             }
-        }
+        };
+
+        window.handleWithdraw = async () => {
+            const amountInput = document.getElementById('transaction-amount').value;
+            const amount = parseFloat(amountInput);
+            const success = await processTransaction(amount, 'Debit', 'Withdrawal');
+            if (success) {
+                document.getElementById('transaction-amount').value = '';
+            }
+        };
+
 
         // --- Initialization ---
-        function cacheDomElements() {
-            // Assigning global let variables to DOM elements
-            balanceEl = document.getElementById('balance');
-            dashboardHistoryBody = document.getElementById('dashboard-history-body');
-            fullHistoryTableBody = document.getElementById('full-history-table-body');
-            totalTransactionsEl = document.getElementById('total-transactions');
-            messageBox = document.getElementById('message-box');
-            messageText = document.getElementById('message-text');
-            loginContainer = document.getElementById('login-container');
-            mainContent = document.getElementById('main-content');
-            accountUserIdEl = document.getElementById('account-user-id');
-            accountHolderEl = document.getElementById('account-holder-name');
-            otpModal = document.getElementById('otp-modal');
-            otpInput = document.getElementById('otp-input');
-            transferSubmitBtn = document.getElementById('transfer-submit-btn');
-
-            // Login Elements
-            userIdInput = document.getElementById('user-id');
-            passwordInput = document.getElementById('password');
-            loginBtn = document.getElementById('login-btn');
-            loginErrorMsg = document.getElementById('login-error');
-        }
-
         async function initApp() {
             try {
-                // Initialize Firebase services
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
                 setLogLevel('debug');
                 
-                // Attach the login button handler
-                if (loginBtn) {
-                    loginBtn.onclick = handleLogin;
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
                 }
                 
-                // Show the login screen initially
+                userId = auth.currentUser.uid;
+                accountUserIdEl.textContent = userId;
+                
+                loginContainer.classList.add('hidden');
+                mainContent.classList.remove('hidden');
+                
+                await initializeAccount();
+                
+                // Attach event listeners for the current page
+                document.getElementById('deposit-btn').onclick = window.handleDeposit;
+                document.getElementById('withdraw-btn').onclick = window.handleWithdraw;
+                document.getElementById('transfer-submit-btn').onclick = window.handleBankTransfer;
+                document.getElementById('otp-submit-btn').onclick = window.handleOtpSubmission; // New OTP submit listener
+                document.getElementById('otp-cancel-btn').onclick = window.hideOtpModal; // New OTP cancel listener
+                
+                // Navigate to the Dashboard initially
+                window.navigateTo('dashboard-content');
+                
+            } catch (error) {
+                console.error("Firebase Initialization/Sign-In Error:", error);
+                showMessage("Critical Error: Failed to initialize application data. Please check Firebase Auth and Security Rules.", 'error');
                 loginContainer.classList.remove('hidden');
                 mainContent.classList.add('hidden');
-
-            } catch (error) {
-                console.error("Firebase Initialization Error:", error);
-                if (loginContainer) {
-                    loginContainer.innerHTML = '<div class="card p-8 w-full max-w-sm text-center"><h1 class="text-3xl font-bold text-red-700 mb-4">Connection Error</h1><p class="text-red-500">Failed to initialize Firebase services. Please check console for details.</p></div>';
-                }
             }
         }
 
-        window.onload = () => {
-            cacheDomElements();
-            initApp();
-        };
+        window.onload = initApp;
 
     </script>
 
@@ -546,37 +605,12 @@
         <p id="message-text" class="font-semibold"></p>
     </div>
 
-    <div id="login-container" class="flex flex-col items-center justify-center min-h-screen p-4">
-        <div class="card p-8 w-full max-w-sm shadow-xl">
-            <div class="text-center mb-8">
-                <h1 class="text-3xl font-bold text-blue-700">Trinity Finance</h1>
-                <p class="text-sm text-gray-500 mt-2">Secure Banking Portal</p>
-            </div>
-            
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-xs font-bold text-gray-600 uppercase mb-1">User ID</label>
-                    <input type="text" id="user-id" class="login-input">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Password</label>
-                    <input type="password" id="password" class="login-input" placeholder="••••••••">
-                </div>
-                
-                <p id="login-error" class="text-red-600 text-sm text-center hidden">Invalid Credentials. Please try again.</p>
-                
-                <button id="login-btn" class="w-full btn-primary font-bold py-3 rounded-lg shadow-md">
-                    Sign In
-                </button>
-            </div>
-            <div class="mt-6 text-center">
-                <p class="text-xs text-gray-400">Unauthorized access is prohibited.</p>
-            </div>
-        </div>
-
-        <div class="w-full max-w-sm mt-6 text-center text-sm text-gray-500">
-            <p class="font-semibold text-gray-700">Customer Support: <a href="tel:+15044995059" class="text-blue-600 hover:underline">(504) 499-5059</a></p>
-            <p class="mt-1">499 Stratford Court, Raleigh NC 27615</p>
+    <div id="login-container" class="flex items-center justify-center min-h-screen">
+        <div class="card p-8 w-full max-w-sm text-center">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Trinity Finance Bank</h1>
+            <p class="text-sm text-gray-500 mb-6">Attempting to connect to your secure account...</p>
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <p class="text-xs text-gray-400 mt-4">Data is saved securely via Firestore.</p>
         </div>
     </div>
 
@@ -607,7 +641,7 @@
                     <div class="card p-6">
                         <h3 class="text-xl font-semibold text-gray-800 mb-4">Account Details</h3>
                         <div class="space-y-3 text-sm">
-                            <p><span class="font-medium text-gray-500">Welcome:</span> <span id="account-holder-name" class="font-bold text-gray-900">Steven Arney</span></p>
+                            <p><span class="font-medium text-gray-500">Welcome:</span> <span id="account-holder-name" class="font-bold text-gray-900">Steven</span></p>
                             <p><span class="font-medium text-gray-500">ACCOUNT TYPE:</span> <span class="font-semibold text-green-600">Fixed Deposit Account</span></p>
                             <p><span class="font-medium text-gray-500">ACCOUNT NUMBER:</span> <span class="font-mono text-gray-700">7739118821</span></p>
                             <p><span class="font-medium text-gray-500">TOTAL TRANSACTIONS:</span> <span id="total-transactions" class="font-bold text-gray-700">0</span></p>
@@ -626,7 +660,7 @@
                         <div class="flex justify-between items-center text-sm font-semibold">
                             <div>
                                 <p class="text-xs font-light opacity-80">CARDHOLDER</p>
-                                <p class="tracking-wider">STEVEN ARNEY</p>
+                                <p class="tracking-wider">STEVEN</p>
                             </div>
                             <div class="flex space-x-6">
                                 <div>
@@ -640,6 +674,20 @@
                             </div>
                         </div>
                     </div>
+
+                    <div class="card p-6 space-y-4">
+                        <h3 class="text-xl font-semibold text-gray-800">Quick Actions</h3>
+                        <input type="number" id="transaction-amount" placeholder="Enter Amount ($)" step="0.01" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <div class="flex space-x-2">
+                            <button id="deposit-btn" class="w-1/2 btn-success font-bold py-3 rounded-lg">
+                                Deposit
+                            </button>
+                            <button id="withdraw-btn" class="w-1/2 btn-danger font-bold py-3 rounded-lg">
+                                Withdraw
+                            </button>
+                        </div>
+                    </div>
+
                 </div>
             </div>
 
@@ -716,11 +764,7 @@
                 </div>
             </div>
         </div>
-        
-        <footer class="mt-12 mb-4 text-center text-sm text-gray-500 border-t pt-4">
-            <p class="font-semibold text-gray-700">Customer Support: <a href="tel:+15044995059" class="text-blue-600 hover:underline">(504) 499-5059</a></p>
-            <p class="mt-1">499 Stratford Court, Raleigh NC 27615</p>
-        </footer>
+
     </div>
 
     <div id="otp-modal" class="modal-overlay hidden">
