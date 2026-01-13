@@ -6,932 +6,559 @@
     <title>Trinity Finance Bank Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Custom Styles for Aesthetics and Responsiveness */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f7fafc; visibility: hidden; } /* HIDE BODY UNTIL JS LOADS */
-        .card { background-color: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1); }
-        .gradient-card { 
-            background: linear-gradient(135deg, #1f2937 0%, #4b5563 100%);
-            color: white;
-            position: relative;
-            overflow: hidden;
-        }
-        .gradient-card::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: rgba(255, 255, 255, 0.05);
-            transform: rotate(45deg);
-        }
+        body { font-family: 'Inter', sans-serif; background-color: #f7fafc; visibility: hidden; }
+        .card { background-color: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1); }
+        .gradient-card { background: linear-gradient(135deg,#1f2937 0%,#4b5563 100%); color: white; position: relative; overflow: hidden; }
         .btn-primary { background-color: #2563eb; color: white; transition: background-color 0.2s; }
         .btn-primary:hover:not(:disabled) { background-color: #1d4ed8; }
-        .btn-success { background-color: #059669; color: white; transition: background-color 0.2s; }
-        .btn-success:hover:not(:disabled) { background-color: #047857; }
-        .btn-danger { background-color: #dc2626; color: white; transition: background-color 0.2s; }
-        .btn-danger:hover:not(:disabled) { background-color: #b91c1c; }
-        
         button:disabled { cursor: not-allowed; opacity: 0.6; }
-        .nav-link { 
-            cursor: pointer;
-            padding: 0.5rem 0.25rem;
-            margin: 0 0.5rem;
-            transition: all 0.15s ease-in-out;
-        }
-        .nav-link:hover {
-            color: #2563eb;
-        }
-
-        /* Hide number input spinners */
-        input[type="number"]::-webkit-outer-spin-button,
-        input[type="number"]::-webkit-inner-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
-        input[type="number"] {
-            -moz-appearance: textfield;
-        }
-
-        /* --- Modal Styles --- */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.6);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 60; /* Higher than message box z-50 */
-        }
-        .modal-content {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
-            width: 90%;
-            max-width: 420px;
-            padding: 1.5rem;
-        }
-
+        .modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background-color: rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; z-index:60; }
+        .modal-content { background:white; border-radius:12px; padding:1.5rem; width:90%; max-width:420px; }
         /* Simple print styles for receipt */
         @media print {
             body * { visibility: hidden; }
             #print-receipt-content, #print-receipt-content * { visibility: visible; }
             #print-receipt-content { position: absolute; left: 0; top: 0; width: 100%; }
         }
-
-        /* Noscript fallback overlay */
-        .noscript-overlay {
-            position: fixed;
-            inset: 0;
-            background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(247,250,252,0.95));
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 80;
-            padding: 2rem;
-            text-align: center;
-        }
     </style>
 </head>
 <body class="p-4 sm:p-8">
 
-    <noscript>
-        <div class="noscript-overlay">
-            <div class="card p-8 max-w-lg">
-                <h2 class="text-2xl font-bold text-gray-800 mb-2">JavaScript required</h2>
-                <p class="text-gray-600 mb-4">This application requires JavaScript to function. Please enable JavaScript in your browser or contact support if you need assistance.</p>
-                <p class="text-sm text-gray-500 mb-4">Support: (504) 499-5059 — Address: 499 Stratford Court, Raleigh NC 27615</p>
-                <p class="text-xs text-gray-500">If you cannot enable JavaScript, you can request a manual statement by contacting support.</p>
-            </div>
+<script>
+/* ============================
+   Trinity Finance - Single File
+   Restored login + logout + persistence
+   ============================ */
+
+const ACCOUNT_HOLDER_NAME = "Steven Arney";
+const CALCULATED_FINAL_BALANCE = 71800000.00; // demo
+const SIMULATED_OTP = "123456"; // demo-only
+
+let initialHistory = [];
+let currentBalance = 0.00;
+let transactionHistory = [];
+let pendingTransfer = null;
+let userId = null;
+
+let bodyEl, balanceEl, dashboardHistoryBody, fullHistoryTableBody, totalTransactionsEl;
+let messageBox, messageText, loginContainer, mainContent, accountUserIdEl, accountHolderEl;
+let otpModal, otpInput, receiptModal, receiptRefEl, receiptDateEl, receiptAmountEl, receiptTypeEl, receiptBalanceEl, receiptSourceEl;
+let transferSubmitBtn, loginSubmitBtn, logoutBtn, downloadReceiptBtn, printReceiptBtn, closeReceiptBtn;
+
+function showMessage(msg, type='success') {
+  messageText.textContent = msg;
+  messageBox.className = `fixed top-4 right-4 p-4 rounded-lg z-50 transition-transform transform ${type==='success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'} shadow-lg translate-x-0`;
+  setTimeout(() => {
+    messageBox.className = `fixed top-4 right-4 p-4 rounded-lg z-50 transition-transform transform translate-x-full`;
+  }, 3000);
+}
+
+const formatCurrency = (amount) => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',minimumFractionDigits:2}).format(amount);
+
+const generateRefId = (type) => {
+  const prefix = type === 'Debit' ? 'TRXD' : 'TRXC';
+  return prefix + Math.random().toString(16).substring(2,10).toUpperCase();
+};
+
+function setActionButtonsDisabled(disabled) {
+  if (transferSubmitBtn) transferSubmitBtn.disabled = disabled;
+  if (loginSubmitBtn) loginSubmitBtn.disabled = disabled;
+}
+
+/* History rendering (keeps behavior from the earlier file) */
+function renderHistoryTable(tableBody, history, limit=null) {
+  if (!tableBody) return;
+  tableBody.innerHTML = '';
+  const sortedHistory = [...history].sort((a,b) => {
+    const da = a.timestamp instanceof Date ? a.timestamp : new Date(a.timestamp);
+    const db = b.timestamp instanceof Date ? b.timestamp : new Date(b.timestamp);
+    return da.getTime() - db.getTime();
+  });
+  let transactionsToDisplay = sortedHistory;
+  if (limit) transactionsToDisplay = sortedHistory.slice().reverse().slice(0, limit);
+  transactionsToDisplay.forEach((tx, index) => {
+    const row = tableBody.insertRow(-1);
+    row.className = index % 2 === 0 ? 'bg-gray-50' : 'bg-white';
+    const dateObj = tx.timestamp instanceof Date ? tx.timestamp : new Date(tx.timestamp);
+    const displayDate = dateObj.toLocaleDateString();
+    let rowNumber = limit ? index + 1 : sortedHistory.indexOf(tx) + 1;
+    const cellIndex = row.insertCell(); cellIndex.textContent = rowNumber; cellIndex.className = 'py-2 px-4 text-gray-500';
+    const cellRef = row.insertCell(); cellRef.textContent = tx.refId; cellRef.className = 'py-2 px-4 font-mono text-xs text-gray-700';
+    const cellSource = row.insertCell(); cellSource.textContent = tx.source || 'N/A'; cellSource.className = 'py-2 px-4 text-gray-700 text-sm';
+    const cellAmount = row.insertCell(); cellAmount.textContent = formatCurrency(tx.amount); cellAmount.className = `py-2 px-4 font-semibold ${tx.type==='Credit'?'text-green-600':'text-red-600'}`;
+    const cellType = row.insertCell(); cellType.textContent = tx.type; cellType.className = `py-2 px-4 font-medium ${tx.type==='Credit'?'text-green-700':'text-red-700'}`;
+    const cellDate = row.insertCell(); cellDate.textContent = displayDate; cellDate.className = 'py-2 px-4 text-gray-500 text-sm';
+    const cellBalance = row.insertCell(); cellBalance.textContent = formatCurrency(tx.runningBalance); cellBalance.className = 'py-2 px-4 font-medium text-gray-800';
+  });
+}
+
+function renderDashboard() {
+  if (balanceEl) balanceEl.textContent = formatCurrency(currentBalance);
+  if (accountHolderEl) accountHolderEl.textContent = ACCOUNT_HOLDER_NAME;
+  if (totalTransactionsEl) totalTransactionsEl.textContent = transactionHistory.length;
+  if (dashboardHistoryBody) renderHistoryTable(dashboardHistoryBody, transactionHistory, 10);
+}
+
+/* Seed data */
+function getSeededHistory() {
+  let current_rb = 0.00;
+  const history = [
+    { refId: 'TRXCFUND0000', type: 'Credit', amount: 0.00, timestamp: new Date('2016-06-01'), runningBalance: current_rb += 0.00, source: 'Initial Account Funding' },
+    { refId: 'TRXCGOLD31M', type: 'Credit', amount: 31000000.00, timestamp: new Date('2016-06-25'), runningBalance: current_rb += 31000000.00, source: 'Gold Linked Investment' },
+    { refId: 'TRXCAEGIS10M1', type: 'Credit', amount: 10200950.00, timestamp: new Date('2016-07-20'), runningBalance: current_rb += 10200950.00, source: 'Aegis Wealth Planner Investment' },
+    { refId: 'TRXD950A', type: 'Debit', amount: 950.00, timestamp: new Date('2016-08-05'), runningBalance: current_rb -= 950.00, source: 'Bank Charges' },
+    { refId: 'TRXCAEGIS10M2', type: 'Credit', amount: 10200950.00, timestamp: new Date('2016-08-20'), runningBalance: current_rb += 10200950.00, source: 'Aegis Wealth Planner Investment' },
+    { refId: 'TRXD950B', type: 'Debit', amount: 950.00, timestamp: new Date('2016-09-10'), runningBalance: current_rb -= 950.00, source: 'Bank Charges' },
+    { refId: 'TRXCAEGIS10M3', type: 'Credit', amount: 10200950.00, timestamp: new Date('2016-10-01'), runningBalance: current_rb += 10200950.00, source: 'Aegis Wealth Planner Investment' },
+    { refId: 'TRXD950C', type: 'Debit', amount: 950.00, timestamp: new Date('2016-10-20'), runningBalance: current_rb -= 950.00, source: 'Bank Charges' },
+    { refId: 'TRXCAEGIS10M4', type: 'Credit', amount: 10200950.00, timestamp: new Date('2016-11-05'), runningBalance: current_rb += 10200950.00, source: 'Aegis Wealth Planner Investment' },
+    { refId: 'TRXD950D', type: 'Debit', amount: 950.00, timestamp: new Date('2016-11-30'), runningBalance: current_rb -= 950.00, source: 'Bank Charges' },
+  ];
+  return history;
+}
+initialHistory = getSeededHistory();
+
+/* ---------------------------
+   Authentication: login / logout
+   - Keeps demo credentials (for local/demo use only)
+   - Persists a simple marker in localStorage so the login appears after refresh
+   --------------------------- */
+function doSignIn(persist = true) {
+  // Set demo session state
+  userId = "stevenarny987";
+  currentBalance = CALCULATED_FINAL_BALANCE;
+  transactionHistory = initialHistory.slice();
+  if (persist) localStorage.setItem('tff_user', userId);
+  accountUserIdEl.textContent = userId;
+  loginContainer.classList.add('hidden');
+  mainContent.classList.remove('hidden');
+  updateAuthUi();
+  renderDashboard();
+  showMessage(`Welcome back, ${ACCOUNT_HOLDER_NAME}`, 'success');
+}
+
+function handleLogin() {
+  const usernameInput = document.getElementById('login-username').value.trim();
+  const passwordInput = document.getElementById('login-password').value.trim();
+  const REQUIRED_USER_ID = "stevenarny@987";
+  const REQUIRED_PASSWORD = "Arney987";
+  setActionButtonsDisabled(true);
+  if (usernameInput !== REQUIRED_USER_ID || passwordInput !== REQUIRED_PASSWORD) {
+    showMessage("Invalid User ID or Password.", 'error');
+    setActionButtonsDisabled(false);
+    return;
+  }
+  doSignIn(true);
+  setActionButtonsDisabled(false);
+}
+
+function handleLogout() {
+  // Clear session
+  userId = null;
+  localStorage.removeItem('tff_user');
+  // Reset UI state
+  currentBalance = 0.00;
+  transactionHistory = [];
+  accountUserIdEl.textContent = '---';
+  renderDashboard();
+  loginContainer.classList.remove('hidden');
+  mainContent.classList.add('hidden');
+  updateAuthUi();
+  showMessage('You have been signed out.', 'success');
+}
+
+function updateAuthUi() {
+  if (logoutBtn) {
+    if (userId) logoutBtn.classList.remove('hidden');
+    else logoutBtn.classList.add('hidden');
+  }
+}
+
+/* ---------------------------
+   Transaction processing (unchanged)
+   --------------------------- */
+function processTransaction(amount, type, source='User Action') {
+  if (amount <= 0 || isNaN(amount)) { showMessage("Invalid amount.", 'error'); return false; }
+  setActionButtonsDisabled(true);
+  let newBalance = currentBalance;
+  const refId = generateRefId(type);
+  let success = false;
+  try {
+    if (type === 'Debit') {
+      if (newBalance < amount) throw new Error("Transaction failed: Insufficient funds (Overdraft prevented).");
+      newBalance -= amount;
+    } else {
+      newBalance += amount;
+    }
+    currentBalance = newBalance;
+    const newTransaction = { refId, type, amount, timestamp: new Date(), runningBalance: newBalance, source };
+    transactionHistory.push(newTransaction);
+    renderDashboard();
+    showMessage(`${type} of ${formatCurrency(amount)} successful. New Balance: ${formatCurrency(currentBalance)}`, 'success');
+    success = true;
+  } catch (err) {
+    console.error(err);
+    showMessage(err.message || 'Transaction failed', 'error');
+  } finally {
+    setActionButtonsDisabled(false);
+  }
+  return success;
+}
+
+/* Receipt modal helpers (unchanged) */
+function showReceiptModal(tx) {
+  if (!tx || !receiptModal) return;
+  receiptRefEl.textContent = tx.refId;
+  receiptDateEl.textContent = (tx.timestamp instanceof Date ? tx.timestamp : new Date(tx.timestamp)).toLocaleString();
+  receiptAmountEl.textContent = formatCurrency(tx.amount);
+  receiptTypeEl.textContent = tx.type;
+  receiptBalanceEl.textContent = formatCurrency(tx.runningBalance);
+  receiptSourceEl.textContent = tx.source || 'N/A';
+  receiptModal.classList.remove('hidden');
+  printReceiptBtn.focus();
+}
+function hideReceiptModal(){ if(!receiptModal) return; receiptModal.classList.add('hidden'); }
+
+/* OTP handling (unchanged) */
+function showOtpModal() {
+  if (!otpModal) return;
+  otpModal.classList.remove('hidden');
+  setTimeout(()=> { otpInput.focus(); otpInput.select && otpInput.select(); }, 50);
+}
+function hideOtpModal() { if (!otpModal) return; otpModal.classList.add('hidden'); pendingTransfer = null; }
+function handleOtpSubmission() {
+  const enteredOtp = otpInput.value.trim();
+  if (!/^\d{6}$/.test(enteredOtp)) { showMessage("Please enter a valid 6-digit OTP.", 'error'); otpInput.value=''; otpInput.focus(); return; }
+  if (!pendingTransfer) { showMessage("Security error: No pending transfer data.", 'error'); hideOtpModal(); return; }
+  if (enteredOtp !== SIMULATED_OTP) { showMessage("Invalid OTP. Please try again.", 'error'); otpInput.value=''; otpInput.focus(); return; }
+  hideOtpModal();
+  const { amount, source } = pendingTransfer;
+  const success = processTransaction(amount, 'Debit', source);
+  if (success) {
+    const lastTx = transactionHistory[transactionHistory.length - 1];
+    if (lastTx) showReceiptModal(lastTx);
+    document.getElementById('transfer-bank-name').value = '';
+    document.getElementById('transfer-account-number').value = '';
+    document.getElementById('transfer-amount').value = '';
+    navigateTo('dashboard-content');
+  }
+  pendingTransfer = null;
+}
+
+function handleBankTransfer() {
+  const recipientBank = document.getElementById('transfer-bank-name').value.trim();
+  const accountNumber = document.getElementById('transfer-account-number').value.trim();
+  const amountInput = document.getElementById('transfer-amount').value;
+  const amount = parseFloat(amountInput);
+  if (!userId) { showMessage("Authentication required.", 'error'); return; }
+  if (!recipientBank || accountNumber.length < 8) { showMessage("Please enter valid recipient bank and account details.", 'error'); return; }
+  if (amount <= 0 || isNaN(amount)) { showMessage("Invalid transfer amount.", 'error'); return; }
+  if (currentBalance < amount) { showMessage("Insufficient funds for transfer.", 'error'); return; }
+  const source = `Bank Transfer to ${recipientBank} - Acct: ${accountNumber.substring(accountNumber.length - 4)}`;
+  pendingTransfer = { amount, source };
+  showOtpModal();
+}
+
+/* Navigation */
+function navigateTo(pageId) {
+  document.querySelectorAll('.app-page').forEach(p => p.classList.add('hidden'));
+  const el = document.getElementById(pageId); if (el) el.classList.remove('hidden');
+  document.querySelectorAll('.nav-link').forEach(link => {
+    link.classList.remove('text-blue-600','font-bold','border-b-2','border-blue-600');
+    link.classList.add('text-gray-500');
+  });
+  const active = document.getElementById('nav-' + pageId); if (active) { active.classList.add('text-blue-600','font-bold','border-b-2','border-blue-600'); active.classList.remove('text-gray-500'); }
+  if (pageId === 'history-content') renderHistoryTable(fullHistoryTableBody, transactionHistory, null);
+}
+
+/* Initialization */
+function initApp() {
+  bodyEl = document.querySelector('body');
+  balanceEl = document.getElementById('balance');
+  dashboardHistoryBody = document.getElementById('dashboard-history-body');
+  fullHistoryTableBody = document.getElementById('full-history-table-body');
+  totalTransactionsEl = document.getElementById('total-transactions');
+  messageBox = document.getElementById('message-box');
+  messageText = document.getElementById('message-text');
+  loginContainer = document.getElementById('login-container');
+  mainContent = document.getElementById('main-content');
+  accountUserIdEl = document.getElementById('account-user-id');
+  accountHolderEl = document.getElementById('account-holder-name');
+  otpModal = document.getElementById('otp-modal');
+  otpInput = document.getElementById('otp-input');
+  receiptModal = document.getElementById('receipt-modal');
+  receiptRefEl = document.getElementById('receipt-ref');
+  receiptDateEl = document.getElementById('receipt-date');
+  receiptAmountEl = document.getElementById('receipt-amount');
+  receiptTypeEl = document.getElementById('receipt-type');
+  receiptBalanceEl = document.getElementById('receipt-balance');
+  receiptSourceEl = document.getElementById('receipt-source');
+  transferSubmitBtn = document.getElementById('transfer-submit-btn');
+  loginSubmitBtn = document.getElementById('login-submit-btn');
+  logoutBtn = document.getElementById('logout-btn');
+  downloadReceiptBtn = document.getElementById('download-receipt-btn');
+  printReceiptBtn = document.getElementById('print-receipt-btn');
+  closeReceiptBtn = document.getElementById('close-receipt-btn');
+
+  bodyEl.style.visibility = 'visible';
+  // default: show login unless persisted session found
+  const stored = localStorage.getItem('tff_user');
+  if (stored) {
+    // auto sign-in (demo behavior)
+    userId = stored;
+    currentBalance = CALCULATED_FINAL_BALANCE;
+    transactionHistory = initialHistory.slice();
+    accountUserIdEl.textContent = userId;
+    loginContainer.classList.add('hidden');
+    mainContent.classList.remove('hidden');
+    renderDashboard();
+    showMessage(`Welcome back, ${ACCOUNT_HOLDER_NAME}`, 'success');
+  } else {
+    loginContainer.classList.remove('hidden');
+    mainContent.classList.add('hidden');
+  }
+
+  // Wire up events
+  if (loginSubmitBtn) loginSubmitBtn.addEventListener('click', handleLogin);
+  if (transferSubmitBtn) transferSubmitBtn.addEventListener('click', handleBankTransfer);
+  if (document.getElementById('otp-submit-btn')) document.getElementById('otp-submit-btn').addEventListener('click', handleOtpSubmission);
+  if (document.getElementById('otp-cancel-btn')) document.getElementById('otp-cancel-btn').addEventListener('click', hideOtpModal);
+  if (downloadReceiptBtn) downloadReceiptBtn.addEventListener('click', () => {
+    const lastTx = transactionHistory[transactionHistory.length-1]; if (lastTx) {
+      const data = { refId: lastTx.refId, timestamp: (lastTx.timestamp instanceof Date ? lastTx.timestamp : new Date(lastTx.timestamp)).toISOString(), type: lastTx.type, amount: lastTx.amount, runningBalance: lastTx.runningBalance, source: lastTx.source || 'N/A' };
+      const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'}); const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = `receipt-${lastTx.refId}.json`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    }
+  });
+  if (printReceiptBtn) printReceiptBtn.addEventListener('click', () => {
+    const lastTx = transactionHistory[transactionHistory.length-1]; if (lastTx) {
+      const html = `<html><head><title>Receipt - ${lastTx.refId}</title><style>body{font-family:Arial;padding:20px;color:#111}h1{font-size:20px}</style></head><body><h1>Receipt</h1><div>Reference: ${lastTx.refId}</div><div>Date: ${(lastTx.timestamp instanceof Date ? lastTx.timestamp : new Date(lastTx.timestamp)).toLocaleString()}</div><div>Amount: ${formatCurrency(lastTx.amount)}</div><div>Balance: ${formatCurrency(lastTx.runningBalance)}</div></body></html>`;
+      const w = window.open('', '_blank', 'noopener'); if (w) { w.document.open(); w.document.write(html); w.document.close(); w.print(); } else showMessage('Pop-up blocked; please allow pop-ups to print.', 'error');
+    }
+  });
+  if (closeReceiptBtn) closeReceiptBtn.addEventListener('click', hideReceiptModal);
+  if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
+
+  // OTP input UX: only digits, paste handling, auto-submit when full
+  if (otpInput) {
+    otpInput.addEventListener('input', () => {
+      const cleaned = otpInput.value.replace(/\D/g, '').slice(0,6);
+      if (otpInput.value !== cleaned) otpInput.value = cleaned;
+      if (cleaned.length === 6) setTimeout(() => handleOtpSubmission(), 250);
+    });
+    otpInput.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData('text') || '';
+      const digits = text.replace(/\D/g, '').slice(0,6);
+      otpInput.value = digits;
+      otpInput.dispatchEvent(new Event('input'));
+    });
+  }
+
+  // accessibility: status region
+  if (messageBox) { messageBox.setAttribute('role','status'); messageBox.setAttribute('aria-live','polite'); }
+
+  updateAuthUi();
+}
+
+window.navigateTo = navigateTo;
+window.handleOtpSubmission = handleOtpSubmission;
+window.showOtpModal = showOtpModal;
+window.hideOtpModal = hideOtpModal;
+
+window.onload = initApp;
+</script>
+
+<!-- Message box -->
+<div id="message-box" class="fixed top-4 right-4 p-4 rounded-lg z-50 transition-transform transform translate-x-full" aria-live="polite" role="status">
+  <p id="message-text" class="font-semibold"></p>
+</div>
+
+<!-- Login container -->
+<div id="login-container" class="flex flex-col items-center justify-center min-h-screen relative">
+  <div class="card p-8 w-full max-w-sm text-center">
+    <h1 class="text-3xl font-bold text-gray-800 mb-2">Trinity Finance Bank</h1>
+    <p class="text-sm text-gray-500 mb-6">Secure Account Login</p>
+    <div class="space-y-4 mb-6">
+      <div>
+        <label for="login-username" class="sr-only">User ID</label>
+        <input type="text" id="login-username" placeholder="User ID" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+        <label for="login-password" class="sr-only">Password</label>
+        <input type="password" id="login-password" placeholder="Password" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+    </div>
+    <button id="login-submit-btn" type="button" class="w-full btn-primary font-bold py-3 rounded-lg">Sign In</button>
+    <p class="text-xs text-gray-500 mt-3">Demo credentials: stevenarny@987 / Arney987</p>
+  </div>
+</div>
+
+<!-- Main content (hidden until login) -->
+<div id="main-content" class="hidden">
+  <header class="mb-10 card p-4">
+    <div class="flex flex-col md:flex-row justify-between items-center">
+      <h1 class="text-3xl font-bold text-gray-800 mb-4 md:mb-0">Trinity Finance</h1>
+      <nav class="flex items-center space-x-4">
+        <div class="flex space-x-2 md:space-x-4 text-lg">
+          <span id="nav-dashboard-content" class="nav-link text-blue-600 font-bold border-b-2 border-blue-600" onclick="navigateTo('dashboard-content')">Dashboard</span>
+          <span id="nav-transfer-content" class="nav-link" onclick="navigateTo('transfer-content')">Bank Transfer</span>
+          <span id="nav-history-content" class="nav-link" onclick="navigateTo('history-content')">History</span>
         </div>
-    </noscript>
-
-    <script>
-        // --- APP STATE AND CONSTANTS ---
-        const ACCOUNT_HOLDER_NAME = "Steven Arney"; 
-        const CALCULATED_FINAL_BALANCE = 71800000.00; // Hardcoded final balance (for demo)
-        const SIMULATED_OTP = "123456"; // Demo-only
-
-        let initialHistory = [];
-        let currentBalance = 0.00; // Will be set on login
-        let transactionHistory = [];
-        let pendingTransfer = null; 
-        let userId = null; 
-
-        // Focus management for modals
-        let previouslyFocusedElement = null;
-
-        // --- HTML Element References (Declared here, assigned in initApp) ---
-        let bodyEl;
-        let balanceEl;
-        let dashboardHistoryBody;
-        let fullHistoryTableBody;
-        let totalTransactionsEl;
-        let messageBox;
-        let messageText;
-        let loginContainer;
-        let mainContent;
-        let accountUserIdEl;
-        let accountHolderEl;
-        let otpModal;
-        let otpInput;
-        let receiptModal;
-        let receiptRefEl;
-        let receiptDateEl;
-        let receiptAmountEl;
-        let receiptTypeEl;
-        let receiptBalanceEl;
-        let receiptSourceEl;
-        let transferSubmitBtn;
-        let loginSubmitBtn;
-        let downloadReceiptBtn;
-        let printReceiptBtn;
-        let closeReceiptBtn;
-
-        // --- Utility Functions ---
-
-        function setActionButtonsDisabled(disabled) {
-            if (transferSubmitBtn) transferSubmitBtn.disabled = disabled;
-            if (loginSubmitBtn) loginSubmitBtn.disabled = disabled;
-        }
-
-        function showMessage(msg, type = 'success') {
-            messageText.textContent = msg;
-            messageBox.className = `fixed top-4 right-4 p-4 rounded-lg z-50 transition-transform transform ${type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'} shadow-lg translate-x-0`;
-            // Hide after 3s
-            setTimeout(() => {
-                messageBox.className = `fixed top-4 right-4 p-4 rounded-lg z-50 transition-transform transform translate-x-full`;
-            }, 3000);
-        }
-
-        const formatCurrency = (amount) => {
-            return new Intl.NumberFormat('en-US', {
-                style: 'currency',
-                currency: 'USD',
-                minimumFractionDigits: 2,
-            }).format(amount);
-        };
-
-        const generateRefId = (type) => {
-            const prefix = type === 'Debit' ? 'TRXD' : 'TRXC';
-            return prefix + Math.random().toString(16).substring(2, 10).toUpperCase();
-        };
-
-        // --- Navigation Logic (SPA) ---
-        window.navigateTo = function(pageId) {
-            document.querySelectorAll('.app-page').forEach(page => page.classList.add('hidden'));
-            const el = document.getElementById(pageId);
-            if (el) el.classList.remove('hidden');
-
-            document.querySelectorAll('.nav-link').forEach(link => {
-                link.classList.remove('text-blue-600', 'font-bold', 'border-b-2', 'border-blue-600');
-                link.classList.add('text-gray-500');
-            });
-            const activeLink = document.getElementById(`nav-${pageId}`);
-            if (activeLink) {
-                activeLink.classList.add('text-blue-600', 'font-bold', 'border-b-2', 'border-blue-600');
-                activeLink.classList.remove('text-gray-500');
-            }
-
-            if (pageId === 'history-content') {
-                renderFullHistory();
-            }
-        }
-
-        // --- Core Application Logic ---
-
-        function renderHistoryTable(tableBody, history, limit = null) {
-            tableBody.innerHTML = '';
-            
-            // Sort history chronologically (oldest -> newest)
-            const sortedHistory = [...history].sort((a, b) => {
-                const dateA = a.timestamp instanceof Date ? a.timestamp : new Date(a.timestamp);
-                const dateB = b.timestamp instanceof Date ? b.timestamp : new Date(b.timestamp);
-                return dateA.getTime() - dateB.getTime();
-            });
-
-            // When showing a limited view (dashboard), present most recent first
-            let transactionsToDisplay = sortedHistory;
-            if (limit) {
-                transactionsToDisplay = sortedHistory.slice().reverse().slice(0, limit);
-            }
-            
-            transactionsToDisplay.forEach((tx, index) => {
-                const row = tableBody.insertRow(-1);
-                row.className = index % 2 === 0 ? 'bg-gray-50' : 'bg-white';
-
-                const dateObj = tx.timestamp instanceof Date ? tx.timestamp : new Date(tx.timestamp);
-                const displayDate = dateObj.toLocaleDateString();
-
-                // Row numbering:
-                // - When limited (dashboard), show 1..N for most-recent-first view
-                // - When full history (chronological), show the transaction's position in chronological order
-                let rowNumber;
-                if (limit) {
-                    rowNumber = index + 1;
-                } else {
-                    rowNumber = sortedHistory.indexOf(tx) + 1;
-                }
-
-                const cellIndex = row.insertCell();
-                cellIndex.textContent = rowNumber;
-                cellIndex.className = 'py-2 px-4 text-gray-500';
-
-                const cellRef = row.insertCell();
-                cellRef.textContent = tx.refId;
-                cellRef.className = 'py-2 px-4 font-mono text-xs text-gray-700';
-
-                const cellSource = row.insertCell();
-                cellSource.textContent = tx.source || 'N/A';
-                cellSource.className = 'py-2 px-4 text-gray-700 text-sm';
-
-                const cellAmount = row.insertCell();
-                cellAmount.textContent = formatCurrency(tx.amount);
-                cellAmount.className = `py-2 px-4 font-semibold ${tx.type === 'Credit' ? 'text-green-600' : 'text-red-600'}`;
-
-                const cellType = row.insertCell();
-                cellType.textContent = tx.type;
-                cellType.className = `py-2 px-4 font-medium ${tx.type === 'Credit' ? 'text-green-700' : 'text-red-700'}`;
-
-                const cellDate = row.insertCell();
-                cellDate.textContent = displayDate;
-                cellDate.className = 'py-2 px-4 text-gray-500 text-sm';
-
-                const cellBalance = row.insertCell();
-                cellBalance.textContent = formatCurrency(tx.runningBalance);
-                cellBalance.className = 'py-2 px-4 font-medium text-gray-800';
-            });
-        }
-
-        function renderDashboard() {
-            if (balanceEl) balanceEl.textContent = formatCurrency(currentBalance);
-            if (accountHolderEl) accountHolderEl.textContent = ACCOUNT_HOLDER_NAME;
-            if (totalTransactionsEl) totalTransactionsEl.textContent = transactionHistory.length;
-            if (dashboardHistoryBody) renderHistoryTable(dashboardHistoryBody, transactionHistory, 10);
-        }
-
-        function renderFullHistory() {
-            if (fullHistoryTableBody) {
-                renderHistoryTable(fullHistoryTableBody, transactionHistory, null);
-            }
-        }
-
-        // --- SYNCHRONOUS SEEDING DATA FUNCTION ---
-        function getSeededHistory() {
-            let current_rb = 0.00;
-            const history = [
-                { refId: 'TRXCFUND0000', type: 'Credit', amount: 0.00, timestamp: new Date('2016-06-01'), runningBalance: current_rb += 0.00, source: 'Initial Account Funding' }, 
-                { refId: 'TRXCGOLD31M', type: 'Credit', amount: 31000000.00, timestamp: new Date('2016-06-25'), runningBalance: current_rb += 31000000.00, source: 'Gold Linked Investment' }, 
-                { refId: 'TRXCAEGIS10M1', type: 'Credit', amount: 10200950.00, timestamp: new Date('2016-07-20'), runningBalance: current_rb += 10200950.00, source: 'Aegis Wealth Planner Investment' }, 
-                { refId: 'TRXD950A', type: 'Debit', amount: 950.00, timestamp: new Date('2016-08-05'), runningBalance: current_rb -= 950.00, source: 'Bank Charges' }, 
-                { refId: 'TRXCAEGIS10M2', type: 'Credit', amount: 10200950.00, timestamp: new Date('2016-08-20'), runningBalance: current_rb += 10200950.00, source: 'Aegis Wealth Planner Investment' }, 
-                { refId: 'TRXD950B', type: 'Debit', amount: 950.00, timestamp: new Date('2016-09-10'), runningBalance: current_rb -= 950.00, source: 'Bank Charges' }, 
-                { refId: 'TRXCAEGIS10M3', type: 'Credit', amount: 10200950.00, timestamp: new Date('2016-10-01'), runningBalance: current_rb += 10200950.00, source: 'Aegis Wealth Planner Investment' }, 
-                { refId: 'TRXD950C', type: 'Debit', amount: 950.00, timestamp: new Date('2016-10-20'), runningBalance: current_rb -= 950.00, source: 'Bank Charges' }, 
-                { refId: 'TRXCAEGIS10M4', type: 'Credit', amount: 10200950.00, timestamp: new Date('2016-11-05'), runningBalance: current_rb += 10200950.00, source: 'Aegis Wealth Planner Investment' }, 
-                { refId: 'TRXD950D', type: 'Debit', amount: 950.00, timestamp: new Date('2016-11-30'), runningBalance: current_rb -= 950.00, source: 'Bank Charges' },
-            ];
-            return history;
-        }
-        initialHistory = getSeededHistory();
-
-        // --- LOGIN HANDLER ---
-        window.handleLogin = () => {
-            const usernameInput = document.getElementById('login-username').value.trim();
-            const passwordInput = document.getElementById('login-password').value.trim();
-            
-            // Demo-only credentials: (these should not be in production)
-            const REQUIRED_USER_ID = "stevenarny@987"; 
-            const REQUIRED_PASSWORD = "Arney987"; 
-            const PERSISTENT_USER_ID = "stevenarny987"; 
-            
-            if (usernameInput !== REQUIRED_USER_ID || passwordInput !== REQUIRED_PASSWORD) {
-                showMessage("Invalid User ID or Password.", 'error');
-                return;
-            }
-
-            setActionButtonsDisabled(true);
-
-            // Synchronously set global variables to the expected state (demo)
-            userId = PERSISTENT_USER_ID; 
-            currentBalance = CALCULATED_FINAL_BALANCE;
-            transactionHistory = initialHistory.slice(); // copy
-            
-            renderDashboard(); 
-
-            // Login successful: Hide login screen and show main content
-            loginContainer.classList.add('hidden');
-            mainContent.classList.remove('hidden');
-            accountUserIdEl.textContent = PERSISTENT_USER_ID;
-            window.navigateTo('dashboard-content');
-            showMessage(`Welcome back, ${ACCOUNT_HOLDER_NAME}`, 'success');
-
-            // Attach app event listeners
-            transferSubmitBtn.onclick = window.handleBankTransfer;
-            document.getElementById('otp-submit-btn').onclick = window.handleOtpSubmission; 
-            document.getElementById('otp-cancel-btn').onclick = window.hideOtpModal; 
-
-            setActionButtonsDisabled(false);
-        };
-
-        // --- TRANSACTION HANDLER (Local State Management) ---
-        function processTransaction(amount, type, source = 'User Action') {
-            if (amount <= 0 || isNaN(amount)) {
-                showMessage("Invalid amount.", 'error');
-                return false;
-            }
-
-            setActionButtonsDisabled(true); 
-
-            let newBalance = currentBalance;
-            const refId = generateRefId(type);
-            let success = false;
-
-            try {
-                if (type === 'Debit') {
-                    if (newBalance < amount) {
-                        throw new Error("Transaction failed: Insufficient funds (Overdraft prevented).");
-                    }
-                    newBalance -= amount;
-                } else if (type === 'Credit') {
-                    newBalance += amount;
-                }
-                
-                // Update local state variables
-                currentBalance = newBalance;
-                
-                const newTransaction = {
-                    refId: refId,
-                    type: type,
-                    amount: amount,
-                    timestamp: new Date(), 
-                    runningBalance: newBalance,
-                    source: source
-                };
-                
-                // Add new transaction to history
-                transactionHistory.push(newTransaction);
-                
-                // Re-render the UI
-                renderDashboard();
-                
-                showMessage(`${type} of ${formatCurrency(amount)} successful. New Balance: ${formatCurrency(currentBalance)}`, 'success');
-                success = true;
-
-            } catch (error) {
-                console.error("Transaction failed:", error);
-                const msg = error.message || "An unknown error occurred.";
-                showMessage(msg, 'error');
-            } finally {
-                setActionButtonsDisabled(false); 
-            }
-            
-            return success;
-        }
-
-        // --- RECEIPT UI & Actions ---
-        function showReceiptModal(tx) {
-            if (!tx || !receiptModal) return;
-            receiptRefEl.textContent = tx.refId;
-            receiptDateEl.textContent = (tx.timestamp instanceof Date ? tx.timestamp : new Date(tx.timestamp)).toLocaleString();
-            receiptAmountEl.textContent = formatCurrency(tx.amount);
-            receiptTypeEl.textContent = tx.type;
-            receiptBalanceEl.textContent = formatCurrency(tx.runningBalance);
-            receiptSourceEl.textContent = tx.source || 'N/A';
-
-            // Show modal and trap focus
-            previouslyFocusedElement = document.activeElement;
-            receiptModal.classList.remove('hidden');
-            // focus first focusable element
-            printReceiptBtn.focus();
-            // basic key handling
-            receiptModal.addEventListener('keydown', receiptModalKeyHandler);
-        }
-
-        function hideReceiptModal() {
-            if (!receiptModal) return;
-            receiptModal.classList.add('hidden');
-            if (previouslyFocusedElement) previouslyFocusedElement.focus();
-            receiptModal.removeEventListener('keydown', receiptModalKeyHandler);
-        }
-
-        function receiptModalKeyHandler(e) {
-            if (e.key === 'Escape') {
-                hideReceiptModal();
-            }
-            // simple trap for Tab — keep focus inside modal
-            if (e.key === 'Tab') {
-                const focusable = receiptModal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-                if (!focusable.length) return;
-                const first = focusable[0];
-                const last = focusable[focusable.length - 1];
-                if (e.shiftKey && document.activeElement === first) {
-                    e.preventDefault();
-                    last.focus();
-                } else if (!e.shiftKey && document.activeElement === last) {
-                    e.preventDefault();
-                    first.focus();
-                }
-            }
-        }
-
-        function printReceipt(tx) {
-            // Build printable HTML and open new window for printing
-            const printWindow = window.open('', '_blank', 'noopener,noreferrer');
-            if (!printWindow) {
-                showMessage('Pop-up blocked; please allow pop-ups to print.', 'error');
-                return;
-            }
-            const html = `
-                <html>
-                <head>
-                <title>Receipt - ${tx.refId}</title>
-                <style>
-                    body { font-family: Arial, sans-serif; padding: 20px; color: #111; }
-                    h1 { font-size: 20px; margin-bottom: 6px; }
-                    .meta { margin-bottom: 12px; color: #555; }
-                    .row { margin-bottom: 8px; }
-                    .label { font-weight: 600; display: inline-block; width: 150px; }
-                    .value { font-weight: 400; }
-                </style>
-                </head>
-                <body>
-                    <h1>Trinity Finance Bank - Transaction Receipt</h1>
-                    <div class="meta">Thank you for using Trinity Finance for your transfer.</div>
-                    <div class="row"><span class="label">Reference:</span> <span class="value">${tx.refId}</span></div>
-                    <div class="row"><span class="label">Date:</span> <span class="value">${(tx.timestamp instanceof Date ? tx.timestamp : new Date(tx.timestamp)).toLocaleString()}</span></div>
-                    <div class="row"><span class="label">Type:</span> <span class="value">${tx.type}</span></div>
-                    <div class="row"><span class="label">Amount:</span> <span class="value">${formatCurrency(tx.amount)}</span></div>
-                    <div class="row"><span class="label">Running Balance:</span> <span class="value">${formatCurrency(tx.runningBalance)}</span></div>
-                    <div class="row"><span class="label">Source:</span> <span class="value">${tx.source || 'N/A'}</span></div>
-                    <hr/>
-                    <p style="font-size: 12px; color: #666;">This document is an electronic receipt. For support contact: (504) 499-5059</p>
-                </body>
-                </html>
-            `;
-            printWindow.document.open();
-            printWindow.document.write(html);
-            printWindow.document.close();
-            printWindow.focus();
-            printWindow.print();
-        }
-
-        function downloadReceiptJSON(tx) {
-            const data = {
-                refId: tx.refId,
-                timestamp: (tx.timestamp instanceof Date ? tx.timestamp : new Date(tx.timestamp)).toISOString(),
-                type: tx.type,
-                amount: tx.amount,
-                runningBalance: tx.runningBalance,
-                source: tx.source || 'N/A'
-            };
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `receipt-${tx.refId}.json`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            URL.revokeObjectURL(url);
-        }
-
-        // --- OTP Modal Functions & Enhancements ---
-        window.showOtpModal = () => {
-            if (!otpModal) return;
-            pendingTransfer = pendingTransfer || null;
-            previouslyFocusedElement = document.activeElement;
-            otpModal.classList.remove('hidden');
-            // autofocus
-            setTimeout(() => {
-                otpInput.focus();
-                otpInput.select && otpInput.select();
-            }, 50);
-            // key handling for focus trap and esc
-            otpModal.addEventListener('keydown', otpModalKeyHandler);
-        };
-
-        window.hideOtpModal = () => {
-            if (!otpModal) return;
-            otpModal.classList.add('hidden');
-            pendingTransfer = null;
-            if (previouslyFocusedElement) previouslyFocusedElement.focus();
-            otpModal.removeEventListener('keydown', otpModalKeyHandler);
-        };
-
-        function otpModalKeyHandler(e) {
-            if (e.key === 'Escape') {
-                window.hideOtpModal();
-            }
-            // Trap focus within modal
-            if (e.key === 'Tab') {
-                const focusable = otpModal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-                if (!focusable.length) return;
-                const first = focusable[0];
-                const last = focusable[focusable.length - 1];
-                if (e.shiftKey && document.activeElement === first) {
-                    e.preventDefault();
-                    last.focus();
-                } else if (!e.shiftKey && document.activeElement === last) {
-                    e.preventDefault();
-                    first.focus();
-                }
-            }
-        }
-
-        window.handleOtpSubmission = () => {
-            const enteredOtp = otpInput.value.trim();
-            if (!/^\d{6}$/.test(enteredOtp)) {
-                showMessage("Please enter a valid 6-digit OTP.", 'error');
-                otpInput.value = '';
-                otpInput.focus();
-                return;
-            }
-
-            if (!pendingTransfer) {
-                showMessage("Security error: No pending transfer data.", 'error');
-                window.hideOtpModal();
-                return;
-            }
-
-            if (enteredOtp !== SIMULATED_OTP) {
-                showMessage("Invalid OTP. Please try again.", 'error');
-                otpInput.value = '';
-                otpInput.focus();
-                return;
-            }
-
-            window.hideOtpModal();
-
-            const { amount, source } = pendingTransfer;
-            const debitSuccess = processTransaction(amount, 'Debit', source);
-            
-            if (debitSuccess) {
-                // last transaction is the one we just added
-                const lastTx = transactionHistory[transactionHistory.length - 1];
-                if (lastTx) showReceiptModal(lastTx);
-
-                document.getElementById('transfer-bank-name').value = '';
-                document.getElementById('transfer-account-number').value = '';
-                document.getElementById('transfer-amount').value = '';
-                window.navigateTo('dashboard-content');
-            }
-
-            pendingTransfer = null;
-        };
-
-        window.handleBankTransfer = () => {
-            const recipientBank = document.getElementById('transfer-bank-name').value.trim();
-            const accountNumber = document.getElementById('transfer-account-number').value.trim();
-            const amountInput = document.getElementById('transfer-amount').value;
-            const amount = parseFloat(amountInput);
-            
-            if (!userId) {
-                showMessage("Authentication required.", 'error');
-                return;
-            }
-            if (!recipientBank || accountNumber.length < 8) {
-                showMessage("Please enter valid recipient bank and account details.", 'error');
-                return;
-            }
-            if (amount <= 0 || isNaN(amount)) {
-                showMessage("Invalid transfer amount.", 'error');
-                return;
-            }
-            if (currentBalance < amount) {
-                showMessage("Insufficient funds for transfer.", 'error');
-                return;
-            }
-            
-            const source = `Bank Transfer to ${recipientBank} - Acct: ${accountNumber.substring(accountNumber.length - 4)}`;
-            pendingTransfer = { amount, source };
-
-            window.showOtpModal();
-        };
-
-        // --- Initialization ---
-        function initApp() {
-            bodyEl = document.querySelector('body');
-            balanceEl = document.getElementById('balance');
-            dashboardHistoryBody = document.getElementById('dashboard-history-body');
-            fullHistoryTableBody = document.getElementById('full-history-table-body');
-            totalTransactionsEl = document.getElementById('total-transactions');
-            messageBox = document.getElementById('message-box');
-            messageText = document.getElementById('message-text');
-            loginContainer = document.getElementById('login-container');
-            mainContent = document.getElementById('main-content');
-            accountUserIdEl = document.getElementById('account-user-id');
-            accountHolderEl = document.getElementById('account-holder-name');
-            otpModal = document.getElementById('otp-modal');
-            otpInput = document.getElementById('otp-input');
-            receiptModal = document.getElementById('receipt-modal');
-            receiptRefEl = document.getElementById('receipt-ref');
-            receiptDateEl = document.getElementById('receipt-date');
-            receiptAmountEl = document.getElementById('receipt-amount');
-            receiptTypeEl = document.getElementById('receipt-type');
-            receiptBalanceEl = document.getElementById('receipt-balance');
-            receiptSourceEl = document.getElementById('receipt-source');
-            transferSubmitBtn = document.getElementById('transfer-submit-btn');
-            loginSubmitBtn = document.getElementById('login-submit-btn');
-            downloadReceiptBtn = document.getElementById('download-receipt-btn');
-            printReceiptBtn = document.getElementById('print-receipt-btn');
-            closeReceiptBtn = document.getElementById('close-receipt-btn');
-            
-            // Show the body content now that the script has initialized
-            bodyEl.style.visibility = 'visible'; 
-            loginContainer.classList.remove('hidden');
-            mainContent.classList.add('hidden');
-            
-            if (loginSubmitBtn) {
-                loginSubmitBtn.addEventListener('click', window.handleLogin);
-            }
-
-            // OTP input UX: force digits, handle paste, auto-submit when 6 digits
-            if (otpInput) {
-                // Allow only digits on input
-                otpInput.addEventListener('input', (e) => {
-                    const cleaned = otpInput.value.replace(/\D/g, '').slice(0, 6);
-                    if (otpInput.value !== cleaned) {
-                        otpInput.value = cleaned;
-                    }
-                    if (cleaned.length === 6) {
-                        // slight debounce to allow visual feedback
-                        setTimeout(() => {
-                            // auto-submit
-                            window.handleOtpSubmission();
-                        }, 250);
-                    }
-                });
-
-                otpInput.addEventListener('paste', (e) => {
-                    e.preventDefault();
-                    const text = (e.clipboardData || window.clipboardData).getData('text') || '';
-                    const digits = text.replace(/\D/g, '').slice(0, 6);
-                    otpInput.value = digits;
-                    // trigger input handler
-                    otpInput.dispatchEvent(new Event('input'));
-                });
-            }
-
-            // Receipt buttons
-            if (downloadReceiptBtn) {
-                downloadReceiptBtn.addEventListener('click', () => {
-                    const lastTx = transactionHistory[transactionHistory.length - 1];
-                    if (lastTx) downloadReceiptJSON(lastTx);
-                });
-            }
-            if (printReceiptBtn) {
-                printReceiptBtn.addEventListener('click', () => {
-                    const lastTx = transactionHistory[transactionHistory.length - 1];
-                    if (lastTx) printReceipt(lastTx);
-                });
-            }
-            if (closeReceiptBtn) {
-                closeReceiptBtn.addEventListener('click', hideReceiptModal);
-            }
-
-            // Make message box accessible
-            if (messageBox) {
-                messageBox.setAttribute('role', 'status');
-                messageBox.setAttribute('aria-live', 'polite');
-            }
-
-            // Attach transfer button to be safe (will get reattached post-login)
-            if (transferSubmitBtn) transferSubmitBtn.addEventListener('click', window.handleBankTransfer);
-        }
-
-        window.onload = initApp;
-    </script>
-
-    <div id="message-box" class="fixed top-4 right-4 p-4 rounded-lg z-50 transition-transform transform translate-x-full" aria-live="polite" role="status">
-        <p id="message-text" class="font-semibold"></p>
+        <div class="ml-4 text-sm text-gray-600">
+          <span class="mr-3">User: <span id="account-user-id" class="font-mono text-xs text-blue-500">---</span></span>
+          <button id="logout-btn" type="button" class="btn-primary py-1 px-3 rounded hidden">Sign Out</button>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <div id="dashboard-content" class="app-page">
+    <p class="text-lg text-gray-600 mb-6">Overview</p>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="lg:col-span-1 space-y-6">
+        <div class="card p-6 bg-blue-600 text-white">
+          <p class="text-sm font-semibold opacity-80 mb-1">ACCOUNT BALANCE</p>
+          <h2 id="balance" class="text-4xl sm:text-5xl font-extrabold">$0.00</h2>
+        </div>
+        <div class="card p-6">
+          <h3 class="text-xl font-semibold text-gray-800 mb-4">Account Details</h3>
+          <div class="space-y-3 text-sm">
+            <p><span class="font-medium text-gray-500">Welcome:</span> <span id="account-holder-name" class="font-bold text-gray-900">Steven Arney</span></p>
+            <p><span class="font-medium text-gray-500">ACCOUNT TYPE:</span> <span class="font-semibold text-green-600">Fixed Deposit Account</span></p>
+            <p><span class="font-medium text-gray-500">ACCOUNT NUMBER:</span> <span class="font-mono text-gray-700">7739118821</span></p>
+            <p><span class="font-medium text-gray-500">TOTAL TRANSACTIONS:</span> <span id="total-transactions" class="font-bold text-gray-700">0</span></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="lg:col-span-2 space-y-6">
+        <div class="gradient-card p-6 h-52 flex flex-col justify-between shadow-2xl">
+          <div>
+            <div class="text-xs font-light tracking-widest opacity-80 mb-2">Trinity Finance Virtual Card</div>
+            <div class="text-3xl font-mono tracking-widest">•••• •••• •••• 7179</div>
+          </div>
+          <div class="flex justify-between items-center text-sm font-semibold">
+            <div>
+              <p class="text-xs font-light opacity-80">CARDHOLDER</p>
+              <p class="tracking-wider">STEVEN ARNEY</p>
+            </div>
+            <div class="flex space-x-6">
+              <div>
+                <p class="text-xs font-light opacity-80">VALID THRU</p>
+                <p class="tracking-wider">12/28</p>
+              </div>
+              <div>
+                <p class="text-xs font-light opacity-80">CVV</p>
+                <p class="tracking-wider">•••</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card p-6 flex justify-between items-center">
+          <h3 class="text-xl font-semibold text-gray-800">Need to transfer funds?</h3>
+          <button onclick="navigateTo('transfer-content')" class="btn-primary font-bold py-2 px-4 rounded-lg" type="button">Go to Bank Transfer</button>
+        </div>
+      </div>
     </div>
 
-    <div id="login-container" class="flex flex-col items-center justify-center min-h-screen relative">
-        <div class="card p-8 w-full max-w-sm text-center">
-            <h1 class="text-3xl font-bold text-gray-800 mb-2">Trinity Finance Bank</h1>
-            <p class="text-sm text-gray-500 mb-6">Secure Account Login</p>
-            
-            <div class="space-y-4 mb-6">
-                <div>
-                    <label for="login-username" class="sr-only">User ID</label>
-                    <input type="text" id="login-username" placeholder="User ID" required 
-                           class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                    <label for="login-password" class="sr-only">Password</label>
-                    <input type="password" id="login-password" placeholder="Password" required 
-                           class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-            </div>
-            
-            <button id="login-submit-btn" type="button" class="w-full btn-primary font-bold py-3 rounded-lg">
-                Sign In
-            </button>
-        </div>
+    <div class="mt-8 card p-6">
+      <h3 class="text-2xl font-semibold text-gray-800 mb-4">Recent Transactions (Last 10)</h3>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+              <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
+              <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source/Detail</th>
+              <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+              <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+              <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+              <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Running Balance</th>
+            </tr>
+          </thead>
+          <tbody id="dashboard-history-body" class="bg-white divide-y divide-gray-200"></tbody>
+        </table>
+      </div>
     </div>
+  </div>
 
-    <div id="main-content" class="hidden">
-        <header class="mb-10 card p-4">
-            <div class="flex flex-col md:flex-row justify-between items-center">
-                <h1 class="text-3xl font-bold text-gray-800 mb-4 md:mb-0">Trinity Finance</h1>
-                <nav class="flex space-x-2 md:space-x-4 text-lg">
-                    <span id="nav-dashboard-content" class="nav-link text-blue-600 font-bold border-b-2 border-blue-600" onclick="navigateTo('dashboard-content')">Dashboard</span>
-                    <span id="nav-transfer-content" class="nav-link" onclick="navigateTo('transfer-content')">Bank Transfer</span>
-                    <span id="nav-history-content" class="nav-link" onclick="navigateTo('history-content')">History</span>
-                </nav>
-            </div>
-        </header>
-
-        <div id="dashboard-content" class="app-page">
-            <p class="text-lg text-gray-600 mb-6">Overview</p>
-            
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-                <div class="lg:col-span-1 space-y-6">
-                    <div class="card p-6 bg-blue-600 text-white">
-                        <p class="text-sm font-semibold opacity-80 mb-1">ACCOUNT BALANCE</p>
-                        <h2 id="balance" class="text-4xl sm:text-5xl font-extrabold">$0.00</h2>
-                    </div>
-
-                    <div class="card p-6">
-                        <h3 class="text-xl font-semibold text-gray-800 mb-4">Account Details</h3>
-                        <div class="space-y-3 text-sm">
-                            <p><span class="font-medium text-gray-500">Welcome:</span> <span id="account-holder-name" class="font-bold text-gray-900">Steven Arney</span></p>
-                            <p><span class="font-medium text-gray-500">ACCOUNT TYPE:</span> <span class="font-semibold text-green-600">Fixed Deposit Account</span></p>
-                            <p><span class="font-medium text-gray-500">ACCOUNT NUMBER:</span> <span class="font-mono text-gray-700">7739118821</span></p>
-                            <p><span class="font-medium text-gray-500">TOTAL TRANSACTIONS:</span> <span id="total-transactions" class="font-bold text-gray-700">0</span></p>
-                            <p><span class="font-medium text-gray-500">Your User ID (Persistent):</span> <span id="account-user-id" class="font-mono text-xs text-blue-500 break-all">---</span></p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="lg:col-span-2 space-y-6">
-
-                    <div class="gradient-card p-6 h-52 flex flex-col justify-between shadow-2xl">
-                        <div>
-                            <div class="text-xs font-light tracking-widest opacity-80 mb-2">Trinity Finance Virtual Card</div>
-                            <div class="text-3xl font-mono tracking-widest">•••• •••• •••• 7179</div>
-                        </div>
-                        <div class="flex justify-between items-center text-sm font-semibold">
-                            <div>
-                                <p class="text-xs font-light opacity-80">CARDHOLDER</p>
-                                <p class="tracking-wider">STEVEN ARNEY</p>
-                            </div>
-                            <div class="flex space-x-6">
-                                <div>
-                                    <p class="text-xs font-light opacity-80">VALID THRU</p>
-                                    <p class="tracking-wider">12/28</p>
-                                </div>
-                                <div>
-                                    <p class="text-xs font-light opacity-80">CVV</p>
-                                    <p class="tracking-wider">•••</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card p-6 flex justify-between items-center">
-                        <h3 class="text-xl font-semibold text-gray-800">Need to transfer funds?</h3>
-                        <button onclick="navigateTo('transfer-content')" class="btn-primary font-bold py-2 px-4 rounded-lg" type="button">
-                            Go to Bank Transfer
-                        </button>
-                    </div>
-
-                </div>
-            </div>
-
-            <div class="mt-8 card p-6">
-                <h3 class="text-2xl font-semibold text-gray-800 mb-4">Recent Transactions (Last 10)</h3>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-100">
-                            <tr>
-                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
-                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
-                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source/Detail</th>
-                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Running Balance</th>
-                            </tr>
-                        </thead>
-                        <tbody id="dashboard-history-body" class="bg-white divide-y divide-gray-200">
-                            </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <div id="transfer-content" class="app-page hidden">
-            <h2 class="text-2xl font-bold text-gray-800 mb-6">Initiate Bank Transfer</h2>
-
-            <div class="card p-8 max-w-lg mx-auto space-y-6">
-                <p class="text-gray-600">Please enter the details of the recipient's external bank account.</p>
-                
-                <div>
-                    <label for="transfer-bank-name" class="block text-sm font-medium text-gray-700 mb-1">Recipient Bank Name</label>
-                    <input type="text" id="transfer-bank-name" placeholder="e.g., Global Financial Trust" required class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-
-                <div>
-                    <label for="transfer-account-number" class="block text-sm font-medium text-gray-700 mb-1">Account Number (External)</label>
-                    <input type="text" id="transfer-account-number" placeholder="1234567890" required class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                
-                <div>
-                    <label for="transfer-amount" class="block text-sm font-medium text-gray-700 mb-1">Transfer Amount</label>
-                    <input type="number" id="transfer-amount" placeholder="Amount ($)" step="0.01" required class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                
-                <button id="transfer-submit-btn" type="button" class="w-full btn-primary font-bold py-3 rounded-lg">
-                    Confirm Transfer
-                </button>
-            </div>
-        </div>
-
-        <div id="history-content" class="app-page hidden">
-            <h2 class="text-2xl font-bold text-gray-800 mb-6">Full Transaction History</h2>
-            <p class="text-gray-600 mb-4">Displaying all transactions chronologically: **June 2016 to November 2016**.</p>
-
-            <div class="mt-4 card p-6">
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-100">
-                            <tr>
-                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
-                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
-                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source/Detail</th>
-                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Running Balance</th>
-                            </tr>
-                        </thead>
-                        <tbody id="full-history-table-body" class="bg-white divide-y divide-gray-200">
-                            </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+  <!-- Transfer page -->
+  <div id="transfer-content" class="app-page hidden">
+    <h2 class="text-2xl font-bold text-gray-800 mb-6">Initiate Bank Transfer</h2>
+    <div class="card p-8 max-w-lg mx-auto space-y-6">
+      <p class="text-gray-600">Please enter recipient details.</p>
+      <div><label for="transfer-bank-name" class="block text-sm font-medium text-gray-700 mb-1">Recipient Bank Name</label><input type="text" id="transfer-bank-name" class="w-full p-3 border border-gray-300 rounded-lg"></div>
+      <div><label for="transfer-account-number" class="block text-sm font-medium text-gray-700 mb-1">Account Number</label><input type="text" id="transfer-account-number" class="w-full p-3 border border-gray-300 rounded-lg"></div>
+      <div><label for="transfer-amount" class="block text-sm font-medium text-gray-700 mb-1">Transfer Amount</label><input type="number" id="transfer-amount" step="0.01" class="w-full p-3 border border-gray-300 rounded-lg"></div>
+      <button id="transfer-submit-btn" type="button" class="w-full btn-primary font-bold py-3 rounded-lg">Confirm Transfer</button>
     </div>
+  </div>
 
-    <!-- OTP Modal -->
-    <div id="otp-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="otp-title" aria-describedby="otp-desc">
-        <div class="modal-content text-center">
-            <h3 id="otp-title" class="text-xl font-bold text-gray-800 mb-4">Transfer Verification</h3>
-            <p id="otp-desc" class="text-gray-600 mb-4">Please enter the 6-digit One-Time Password (OTP) to confirm your transfer.</p>
-            <input 
-                type="text" 
-                id="otp-input" 
-                placeholder="6-digit OTP" 
-                maxlength="6"
-                inputmode="numeric"
-                pattern="[0-9]{6}"
-                autocomplete="one-time-code"
-                class="w-full p-4 text-center text-2xl font-mono tracking-widest border-2 border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-6"
-            >
-            
-            <div class="flex space-x-3">
-                <button id="otp-cancel-btn" type="button" class="w-1/2 bg-gray-300 text-gray-800 font-bold py-3 rounded-lg hover:bg-gray-400">
-                    Cancel
-                </button>
-                <button id="otp-submit-btn" type="button" class="w-1/2 btn-primary font-bold py-3 rounded-lg">
-                    Verify & Send
-                </button>
-            </div>
-        </div>
+  <!-- Full history -->
+  <div id="history-content" class="app-page hidden">
+    <h2 class="text-2xl font-bold text-gray-800 mb-6">Full Transaction History</h2>
+    <div class="mt-4 card p-6">
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+              <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
+              <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source/Detail</th>
+              <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+              <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+              <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+              <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Running Balance</th>
+            </tr>
+          </thead>
+          <tbody id="full-history-table-body" class="bg-white divide-y divide-gray-200"></tbody>
+        </table>
+      </div>
     </div>
+  </div>
+</div>
 
-    <!-- Receipt Modal -->
-    <div id="receipt-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="receipt-title">
-        <div class="modal-content">
-            <h3 id="receipt-title" class="text-xl font-bold text-gray-800 mb-4">Transaction Receipt</h3>
-            <div id="print-receipt-content" class="space-y-2 text-sm text-gray-700 mb-4">
-                <div><strong>Reference:</strong> <span id="receipt-ref">-</span></div>
-                <div><strong>Date:</strong> <span id="receipt-date">-</span></div>
-                <div><strong>Type:</strong> <span id="receipt-type">-</span></div>
-                <div><strong>Amount:</strong> <span id="receipt-amount">-</span></div>
-                <div><strong>Running Balance:</strong> <span id="receipt-balance">-</span></div>
-                <div><strong>Source:</strong> <span id="receipt-source">-</span></div>
-            </div>
-            <div class="flex space-x-3">
-                <button id="print-receipt-btn" type="button" class="btn-primary flex-1 py-2 rounded-lg">Print Receipt</button>
-                <button id="download-receipt-btn" type="button" class="bg-gray-200 text-gray-800 flex-1 py-2 rounded-lg">Download JSON</button>
-                <button id="close-receipt-btn" type="button" class="bg-white border border-gray-300 text-gray-700 flex-1 py-2 rounded-lg">Close</button>
-            </div>
-        </div>
+<!-- OTP Modal -->
+<div id="otp-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="otp-title">
+  <div class="modal-content text-center">
+    <h3 id="otp-title" class="text-xl font-bold text-gray-800 mb-4">Transfer Verification</h3>
+    <p class="text-gray-600 mb-4">Enter the 6-digit OTP to confirm your transfer.</p>
+    <input id="otp-input" type="text" maxlength="6" inputmode="numeric" autocomplete="one-time-code" class="w-full p-4 text-center text-2xl font-mono border-2 border-blue-300 rounded-lg mb-6">
+    <div class="flex space-x-3">
+      <button id="otp-cancel-btn" type="button" class="w-1/2 bg-gray-300 text-gray-800 font-bold py-3 rounded-lg">Cancel</button>
+      <button id="otp-submit-btn" type="button" class="w-1/2 btn-primary font-bold py-3 rounded-lg">Verify & Send</button>
     </div>
+  </div>
+</div>
 
-    <footer id="app-footer" class="text-center text-gray-500 mt-12 mb-4 p-4">
-        <p class="text-sm font-semibold mb-1">Trinity Finance Bank</p>
-        <p class="text-xs">Address: 499 Stratford Court, Raleigh NC 27615</p>
-        <p class="text-xs">Customer Support: (504) 499-5059</p>
-    </footer>
+<!-- Receipt Modal -->
+<div id="receipt-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="receipt-title">
+  <div class="modal-content">
+    <h3 id="receipt-title" class="text-xl font-bold text-gray-800 mb-4">Transaction Receipt</h3>
+    <div id="print-receipt-content" class="space-y-2 text-sm text-gray-700 mb-4">
+      <div><strong>Reference:</strong> <span id="receipt-ref">-</span></div>
+      <div><strong>Date:</strong> <span id="receipt-date">-</span></div>
+      <div><strong>Type:</strong> <span id="receipt-type">-</span></div>
+      <div><strong>Amount:</strong> <span id="receipt-amount">-</span></div>
+      <div><strong>Running Balance:</strong> <span id="receipt-balance">-</span></div>
+      <div><strong>Source:</strong> <span id="receipt-source">-</span></div>
+    </div>
+    <div class="flex space-x-3">
+      <button id="print-receipt-btn" type="button" class="btn-primary flex-1 py-2 rounded-lg">Print Receipt</button>
+      <button id="download-receipt-btn" type="button" class="bg-gray-200 text-gray-800 flex-1 py-2 rounded-lg">Download JSON</button>
+      <button id="close-receipt-btn" type="button" class="bg-white border border-gray-300 text-gray-700 flex-1 py-2 rounded-lg">Close</button>
+    </div>
+  </div>
+</div>
+
+<footer id="app-footer" class="text-center text-gray-500 mt-12 mb-4 p-4">
+  <p class="text-sm font-semibold mb-1">Trinity Finance Bank</p>
+  <p class="text-xs">Address: 499 Stratford Court, Raleigh NC 27615</p>
+  <p class="text-xs">Customer Support: (504) 499-5059</p>
+</footer>
 
 </body>
 </html>
