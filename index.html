@@ -15,12 +15,12 @@
         button:disabled { cursor: not-allowed; opacity: 0.6; }
         .modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background-color: rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; z-index:60; }
         .modal-content { background:white; border-radius:12px; padding:1.5rem; width:90%; max-width:420px; }
-        /* Simple print styles for receipt */
         @media print {
             body * { visibility: hidden; }
             #print-receipt-content, #print-receipt-content * { visibility: visible; }
             #print-receipt-content { position: absolute; left: 0; top: 0; width: 100%; }
         }
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border-width: 0; }
     </style>
 </head>
 <body class="p-4 sm:p-8">
@@ -28,12 +28,22 @@
 <script>
 /* ============================
    Trinity Finance - Single File
-   Restored login + logout + persistence
+   Hardcoded demo credentials and account holder name per request
    ============================ */
 
-const ACCOUNT_HOLDER_NAME = "Steven Arney";
+/* Hardcoded demo credentials and account name (embedded in the file) */
+const DEFAULT_ACCOUNT_NAME = "Angela Kane";
+const DEFAULT_CREDENTIALS = {
+  requiredUserId: "angelakane272@gmail.com",
+  requiredPassword: "Kane@12",
+  persistentUserId: "angelakane272"
+};
+
 const CALCULATED_FINAL_BALANCE = 71800000.00; // demo
 const SIMULATED_OTP = "123456"; // demo-only
+
+/* LocalStorage keys */
+const LS_SESSION_KEY = 'tff_user';
 
 let initialHistory = [];
 let currentBalance = 0.00;
@@ -41,6 +51,7 @@ let transactionHistory = [];
 let pendingTransfer = null;
 let userId = null;
 
+/* Elements (populated in initApp) */
 let bodyEl, balanceEl, dashboardHistoryBody, fullHistoryTableBody, totalTransactionsEl;
 let messageBox, messageText, loginContainer, mainContent, accountUserIdEl, accountHolderEl;
 let otpModal, otpInput, receiptModal, receiptRefEl, receiptDateEl, receiptAmountEl, receiptTypeEl, receiptBalanceEl, receiptSourceEl;
@@ -55,18 +66,16 @@ function showMessage(msg, type='success') {
 }
 
 const formatCurrency = (amount) => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',minimumFractionDigits:2}).format(amount);
-
 const generateRefId = (type) => {
   const prefix = type === 'Debit' ? 'TRXD' : 'TRXC';
   return prefix + Math.random().toString(16).substring(2,10).toUpperCase();
 };
-
 function setActionButtonsDisabled(disabled) {
   if (transferSubmitBtn) transferSubmitBtn.disabled = disabled;
   if (loginSubmitBtn) loginSubmitBtn.disabled = disabled;
 }
 
-/* History rendering (keeps behavior from the earlier file) */
+/* History rendering */
 function renderHistoryTable(tableBody, history, limit=null) {
   if (!tableBody) return;
   tableBody.innerHTML = '';
@@ -95,7 +104,7 @@ function renderHistoryTable(tableBody, history, limit=null) {
 
 function renderDashboard() {
   if (balanceEl) balanceEl.textContent = formatCurrency(currentBalance);
-  if (accountHolderEl) accountHolderEl.textContent = ACCOUNT_HOLDER_NAME;
+  if (accountHolderEl) accountHolderEl.textContent = DEFAULT_ACCOUNT_NAME;
   if (totalTransactionsEl) totalTransactionsEl.textContent = transactionHistory.length;
   if (dashboardHistoryBody) renderHistoryTable(dashboardHistoryBody, transactionHistory, 10);
 }
@@ -119,45 +128,36 @@ function getSeededHistory() {
 }
 initialHistory = getSeededHistory();
 
-/* ---------------------------
-   Authentication: login / logout
-   - Keeps demo credentials (for local/demo use only)
-   - Persists a simple marker in localStorage so the login appears after refresh
-   --------------------------- */
-function doSignIn(persist = true) {
-  // Set demo session state
-  userId = "stevenarny987";
+/* Authentication (hardcoded defaults) */
+function handleLogin() {
+  const usernameInput = document.getElementById('login-username').value.trim();
+  const passwordInput = document.getElementById('login-password').value.trim();
+  setActionButtonsDisabled(true);
+  if (usernameInput !== DEFAULT_CREDENTIALS.requiredUserId || passwordInput !== DEFAULT_CREDENTIALS.requiredPassword) {
+    showMessage("Invalid User ID or Password.", 'error');
+    setActionButtonsDisabled(false);
+    return;
+  }
+  doSignIn(true, DEFAULT_CREDENTIALS.persistentUserId);
+  setActionButtonsDisabled(false);
+}
+
+function doSignIn(persist=true, persistentId=null) {
+  userId = persistentId || DEFAULT_CREDENTIALS.persistentUserId;
   currentBalance = CALCULATED_FINAL_BALANCE;
   transactionHistory = initialHistory.slice();
-  if (persist) localStorage.setItem('tff_user', userId);
+  if (persist) localStorage.setItem(LS_SESSION_KEY, userId);
   accountUserIdEl.textContent = userId;
   loginContainer.classList.add('hidden');
   mainContent.classList.remove('hidden');
   updateAuthUi();
   renderDashboard();
-  showMessage(`Welcome back, ${ACCOUNT_HOLDER_NAME}`, 'success');
-}
-
-function handleLogin() {
-  const usernameInput = document.getElementById('login-username').value.trim();
-  const passwordInput = document.getElementById('login-password').value.trim();
-  const REQUIRED_USER_ID = "stevenarny@987";
-  const REQUIRED_PASSWORD = "Arney987";
-  setActionButtonsDisabled(true);
-  if (usernameInput !== REQUIRED_USER_ID || passwordInput !== REQUIRED_PASSWORD) {
-    showMessage("Invalid User ID or Password.", 'error');
-    setActionButtonsDisabled(false);
-    return;
-  }
-  doSignIn(true);
-  setActionButtonsDisabled(false);
+  showMessage(`Welcome back, ${DEFAULT_ACCOUNT_NAME}`, 'success');
 }
 
 function handleLogout() {
-  // Clear session
   userId = null;
-  localStorage.removeItem('tff_user');
-  // Reset UI state
+  localStorage.removeItem(LS_SESSION_KEY);
   currentBalance = 0.00;
   transactionHistory = [];
   accountUserIdEl.textContent = '---';
@@ -170,14 +170,11 @@ function handleLogout() {
 
 function updateAuthUi() {
   if (logoutBtn) {
-    if (userId) logoutBtn.classList.remove('hidden');
-    else logoutBtn.classList.add('hidden');
+    if (userId) logoutBtn.classList.remove('hidden'); else logoutBtn.classList.add('hidden');
   }
 }
 
-/* ---------------------------
-   Transaction processing (unchanged)
-   --------------------------- */
+/* Transaction processing */
 function processTransaction(amount, type, source='User Action') {
   if (amount <= 0 || isNaN(amount)) { showMessage("Invalid amount.", 'error'); return false; }
   setActionButtonsDisabled(true);
@@ -188,9 +185,7 @@ function processTransaction(amount, type, source='User Action') {
     if (type === 'Debit') {
       if (newBalance < amount) throw new Error("Transaction failed: Insufficient funds (Overdraft prevented).");
       newBalance -= amount;
-    } else {
-      newBalance += amount;
-    }
+    } else newBalance += amount;
     currentBalance = newBalance;
     const newTransaction = { refId, type, amount, timestamp: new Date(), runningBalance: newBalance, source };
     transactionHistory.push(newTransaction);
@@ -206,7 +201,7 @@ function processTransaction(amount, type, source='User Action') {
   return success;
 }
 
-/* Receipt modal helpers (unchanged) */
+/* OTP & receipt helpers */
 function showReceiptModal(tx) {
   if (!tx || !receiptModal) return;
   receiptRefEl.textContent = tx.refId;
@@ -220,13 +215,8 @@ function showReceiptModal(tx) {
 }
 function hideReceiptModal(){ if(!receiptModal) return; receiptModal.classList.add('hidden'); }
 
-/* OTP handling (unchanged) */
-function showOtpModal() {
-  if (!otpModal) return;
-  otpModal.classList.remove('hidden');
-  setTimeout(()=> { otpInput.focus(); otpInput.select && otpInput.select(); }, 50);
-}
-function hideOtpModal() { if (!otpModal) return; otpModal.classList.add('hidden'); pendingTransfer = null; }
+function showOtpModal() { if(!otpModal) return; otpModal.classList.remove('hidden'); setTimeout(()=>{ otpInput.focus(); otpInput.select && otpInput.select(); },50); }
+function hideOtpModal() { if(!otpModal) return; otpModal.classList.add('hidden'); pendingTransfer = null; }
 function handleOtpSubmission() {
   const enteredOtp = otpInput.value.trim();
   if (!/^\d{6}$/.test(enteredOtp)) { showMessage("Please enter a valid 6-digit OTP.", 'error'); otpInput.value=''; otpInput.focus(); return; }
@@ -302,30 +292,25 @@ function initApp() {
   closeReceiptBtn = document.getElementById('close-receipt-btn');
 
   bodyEl.style.visibility = 'visible';
-  // default: show login unless persisted session found
-  const stored = localStorage.getItem('tff_user');
-  if (stored) {
-    // auto sign-in (demo behavior)
-    userId = stored;
-    currentBalance = CALCULATED_FINAL_BALANCE;
-    transactionHistory = initialHistory.slice();
-    accountUserIdEl.textContent = userId;
-    loginContainer.classList.add('hidden');
-    mainContent.classList.remove('hidden');
-    renderDashboard();
-    showMessage(`Welcome back, ${ACCOUNT_HOLDER_NAME}`, 'success');
+
+  // Auto sign-in if session exists
+  const storedSession = localStorage.getItem(LS_SESSION_KEY);
+  if (storedSession) {
+    doSignIn(true, storedSession);
   } else {
     loginContainer.classList.remove('hidden');
     mainContent.classList.add('hidden');
   }
 
-  // Wire up events
+  // Wire events
   if (loginSubmitBtn) loginSubmitBtn.addEventListener('click', handleLogin);
   if (transferSubmitBtn) transferSubmitBtn.addEventListener('click', handleBankTransfer);
-  if (document.getElementById('otp-submit-btn')) document.getElementById('otp-submit-btn').addEventListener('click', handleOtpSubmission);
-  if (document.getElementById('otp-cancel-btn')) document.getElementById('otp-cancel-btn').addEventListener('click', hideOtpModal);
+  const otpSubmit = document.getElementById('otp-submit-btn'), otpCancel = document.getElementById('otp-cancel-btn');
+  if (otpSubmit) otpSubmit.addEventListener('click', handleOtpSubmission);
+  if (otpCancel) otpCancel.addEventListener('click', hideOtpModal);
   if (downloadReceiptBtn) downloadReceiptBtn.addEventListener('click', () => {
-    const lastTx = transactionHistory[transactionHistory.length-1]; if (lastTx) {
+    const lastTx = transactionHistory[transactionHistory.length-1];
+    if (lastTx) {
       const data = { refId: lastTx.refId, timestamp: (lastTx.timestamp instanceof Date ? lastTx.timestamp : new Date(lastTx.timestamp)).toISOString(), type: lastTx.type, amount: lastTx.amount, runningBalance: lastTx.runningBalance, source: lastTx.source || 'N/A' };
       const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'}); const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url; a.download = `receipt-${lastTx.refId}.json`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
@@ -340,7 +325,7 @@ function initApp() {
   if (closeReceiptBtn) closeReceiptBtn.addEventListener('click', hideReceiptModal);
   if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
 
-  // OTP input UX: only digits, paste handling, auto-submit when full
+  // OTP UX
   if (otpInput) {
     otpInput.addEventListener('input', () => {
       const cleaned = otpInput.value.replace(/\D/g, '').slice(0,6);
@@ -351,31 +336,32 @@ function initApp() {
       e.preventDefault();
       const text = (e.clipboardData || window.clipboardData).getData('text') || '';
       const digits = text.replace(/\D/g, '').slice(0,6);
-      otpInput.value = digits;
-      otpInput.dispatchEvent(new Event('input'));
+      otpInput.value = digits; otpInput.dispatchEvent(new Event('input'));
     });
   }
 
-  // accessibility: status region
   if (messageBox) { messageBox.setAttribute('role','status'); messageBox.setAttribute('aria-live','polite'); }
 
+  // Update account holder name display (hardcoded)
+  if (accountHolderEl) accountHolderEl.textContent = DEFAULT_ACCOUNT_NAME;
   updateAuthUi();
+
+  // Show the demo credential hint under the login form
+  const demoEl = document.getElementById('demo-credentials');
+  if (demoEl) demoEl.textContent = `${DEFAULT_CREDENTIALS.requiredUserId} / ${DEFAULT_CREDENTIALS.requiredPassword}`;
 }
 
+window.onload = initApp;
 window.navigateTo = navigateTo;
 window.handleOtpSubmission = handleOtpSubmission;
-window.showOtpModal = showOtpModal;
-window.hideOtpModal = hideOtpModal;
-
-window.onload = initApp;
 </script>
 
-<!-- Message box -->
+<!-- message -->
 <div id="message-box" class="fixed top-4 right-4 p-4 rounded-lg z-50 transition-transform transform translate-x-full" aria-live="polite" role="status">
   <p id="message-text" class="font-semibold"></p>
 </div>
 
-<!-- Login container -->
+<!-- login -->
 <div id="login-container" class="flex flex-col items-center justify-center min-h-screen relative">
   <div class="card p-8 w-full max-w-sm text-center">
     <h1 class="text-3xl font-bold text-gray-800 mb-2">Trinity Finance Bank</h1>
@@ -391,11 +377,13 @@ window.onload = initApp;
       </div>
     </div>
     <button id="login-submit-btn" type="button" class="w-full btn-primary font-bold py-3 rounded-lg">Sign In</button>
-    <p class="text-xs text-gray-500 mt-3">Demo credentials: stevenarny@987 / Arney987</p>
+    <div class="mt-3 text-xs text-gray-500">
+      Demo login: <span id="demo-credentials" class="font-mono"></span>
+    </div>
   </div>
 </div>
 
-<!-- Main content (hidden until login) -->
+<!-- main content -->
 <div id="main-content" class="hidden">
   <header class="mb-10 card p-4">
     <div class="flex flex-col md:flex-row justify-between items-center">
@@ -425,7 +413,7 @@ window.onload = initApp;
         <div class="card p-6">
           <h3 class="text-xl font-semibold text-gray-800 mb-4">Account Details</h3>
           <div class="space-y-3 text-sm">
-            <p><span class="font-medium text-gray-500">Welcome:</span> <span id="account-holder-name" class="font-bold text-gray-900">Steven Arney</span></p>
+            <p><span class="font-medium text-gray-500">Welcome:</span> <span id="account-holder-name" class="font-bold text-gray-900">-</span></p>
             <p><span class="font-medium text-gray-500">ACCOUNT TYPE:</span> <span class="font-semibold text-green-600">Fixed Deposit Account</span></p>
             <p><span class="font-medium text-gray-500">ACCOUNT NUMBER:</span> <span class="font-mono text-gray-700">7739118821</span></p>
             <p><span class="font-medium text-gray-500">TOTAL TRANSACTIONS:</span> <span id="total-transactions" class="font-bold text-gray-700">0</span></p>
@@ -442,7 +430,7 @@ window.onload = initApp;
           <div class="flex justify-between items-center text-sm font-semibold">
             <div>
               <p class="text-xs font-light opacity-80">CARDHOLDER</p>
-              <p class="tracking-wider">STEVEN ARNEY</p>
+              <p class="tracking-wider">ANGELA KANE</p>
             </div>
             <div class="flex space-x-6">
               <div>
@@ -485,7 +473,7 @@ window.onload = initApp;
     </div>
   </div>
 
-  <!-- Transfer page -->
+  <!-- transfer -->
   <div id="transfer-content" class="app-page hidden">
     <h2 class="text-2xl font-bold text-gray-800 mb-6">Initiate Bank Transfer</h2>
     <div class="card p-8 max-w-lg mx-auto space-y-6">
@@ -497,7 +485,7 @@ window.onload = initApp;
     </div>
   </div>
 
-  <!-- Full history -->
+  <!-- history -->
   <div id="history-content" class="app-page hidden">
     <h2 class="text-2xl font-bold text-gray-800 mb-6">Full Transaction History</h2>
     <div class="mt-4 card p-6">
@@ -521,7 +509,7 @@ window.onload = initApp;
   </div>
 </div>
 
-<!-- OTP Modal -->
+<!-- OTP modal -->
 <div id="otp-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="otp-title">
   <div class="modal-content text-center">
     <h3 id="otp-title" class="text-xl font-bold text-gray-800 mb-4">Transfer Verification</h3>
@@ -534,7 +522,7 @@ window.onload = initApp;
   </div>
 </div>
 
-<!-- Receipt Modal -->
+<!-- receipt modal -->
 <div id="receipt-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="receipt-title">
   <div class="modal-content">
     <h3 id="receipt-title" class="text-xl font-bold text-gray-800 mb-4">Transaction Receipt</h3>
