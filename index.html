@@ -28,7 +28,8 @@
 <script>
 /* ============================
    Trinity Finance - Single File
-   Hardcoded demo credentials and account holder name per request
+   Credentials/account name set (hardcoded).
+   The login hint under the login form was removed so credentials are not shown on the page.
    ============================ */
 
 /* Hardcoded demo credentials and account name (embedded in the file) */
@@ -128,7 +129,7 @@ function getSeededHistory() {
 }
 initialHistory = getSeededHistory();
 
-/* Authentication (hardcoded defaults) */
+/* Authentication (hardcoded defaults - credentials are NOT displayed on the login screen) */
 function handleLogin() {
   const usernameInput = document.getElementById('login-username').value.trim();
   const passwordInput = document.getElementById('login-password').value.trim();
@@ -345,10 +346,6 @@ function initApp() {
   // Update account holder name display (hardcoded)
   if (accountHolderEl) accountHolderEl.textContent = DEFAULT_ACCOUNT_NAME;
   updateAuthUi();
-
-  // Show the demo credential hint under the login form
-  const demoEl = document.getElementById('demo-credentials');
-  if (demoEl) demoEl.textContent = `${DEFAULT_CREDENTIALS.requiredUserId} / ${DEFAULT_CREDENTIALS.requiredPassword}`;
 }
 
 window.onload = initApp;
@@ -377,9 +374,7 @@ window.handleOtpSubmission = handleOtpSubmission;
       </div>
     </div>
     <button id="login-submit-btn" type="button" class="w-full btn-primary font-bold py-3 rounded-lg">Sign In</button>
-    <div class="mt-3 text-xs text-gray-500">
-      Demo login: <span id="demo-credentials" class="font-mono"></span>
-    </div>
+    <!-- Note: credentials hint removed for privacy -->
   </div>
 </div>
 
